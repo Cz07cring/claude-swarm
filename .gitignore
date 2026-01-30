@@ -40,3 +40,6 @@ vendor/
 *.tmp
 test-file.txt
 hello.go
+
+# Worktrees
+.worktrees/
