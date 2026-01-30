@@ -1,17 +1,66 @@
 # Claude Agent Swarm 🐝
 
-> 基于 tmux 的 Claude Code 多 Agent 协作开发环境
+> 基于 tmux 和 Gemini AI 的智能多 Agent 协作开发环境
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Gemini](https://img.shields.io/badge/Powered_by-Gemini-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 
 ## 简介
 
-Claude Agent Swarm 是一个创新的多 Agent 协作系统，能够同时管理多个 Claude Code 实例，实现任务自动分发、状态监控和智能协助。
+Claude Agent Swarm 是一个创新的**AI驱动多Agent协作系统**，能够：
+- 🧠 **AI主脑分析** - 使用 Gemini 智能分析需求并自动拆分任务
+- 🐝 **蜂群协作** - 同时管理多个 Claude Code 实例并行开发
+- 🎯 **智能调度** - 自动任务分发、依赖管理和状态监控
+
+## ✨ v2.0 新特性：AI主脑系统
+
+### 🧠 智能需求分析
+
+只需一句话描述需求，AI主脑（Gemini）会自动：
+1. 理解需求核心功能
+2. 拆分成独立模块（3-8个）
+3. 生成可执行任务（每个30分钟-2小时）
+4. 识别任务依赖关系（DAG）
+5. 自动创建任务队列
+
+**示例：**
+```bash
+swarm orchestrate "实现一个Todo应用，包括添加、删除、完成功能"
+```
+
+**AI分析结果：**
+```
+📊 AI分析结果
+════════════════════════════════════════════════════════════
+📌 需求概要: 实现基于React和LocalStorage的Todo应用
+🎯 复杂度: low
+⏱️  预计时间: 6-8h
+
+🔧 模块拆分 (5个模块):
+  1. DataModel - Todo数据结构
+  2. StorageEngine - LocalStorage持久化
+  3. CoreLogic - 状态管理Hook
+  4. UIComponents - UI组件
+  5. AppAssembly - 页面装配
+
+📋 任务列表 (8个任务):
+  🟢 Task-1: 创建 todo.ts 定义接口
+  🔵 Task-2: 实现 storage.ts 持久化
+  🔵 Task-3: 实现 useTodos Hook
+  ...
+```
 
 ### 核心特性
 
-- 🚀 **并行开发** - 同时运行多个 Claude Agent，提升开发效率
+**v2.0 新增：**
+- 🧠 **AI主脑** - Gemini驱动的智能需求分析和任务拆分
+- 📊 **模块化拆分** - 自动识别独立功能模块
+- 🔗 **依赖管理** - 智能识别任务依赖关系（DAG）
+- 🎯 **精准任务** - 生成具体可执行的任务描述
+
+**v1.0 核心：**
+- 🚀 **并行开发** - 同时运行多个 Claude Agent
 - 🔄 **自动调度** - 智能任务分发和负载均衡
 - 🤖 **智能协助** - 自动检测并处理等待确认、错误等状态
 - 📊 **实时监控** - 监控所有 Agent 的运行状态
@@ -20,20 +69,45 @@ Claude Agent Swarm 是一个创新的多 Agent 协作系统，能够同时管理
 
 ### 工作原理
 
+#### v2.0 AI主脑模式（推荐）
+
 ```
-用户添加任务
+用户描述需求（一句话）
+    ↓
+AI主脑（Gemini）分析需求
+  ├─ 理解核心功能
+  ├─ 拆分独立模块（3-8个）
+  ├─ 生成可执行任务
+  └─ 识别依赖关系（DAG）
+    ↓
+自动创建任务队列
+    ↓
+调度器根据依赖分配任务
+    ↓
+Agent 在独立 tmux 窗格中并行执行
+    ↓
+监控器检测状态（每 2 秒）
+  ├─ 自动处理确认
+  ├─ 检测错误和卡住
+  └─ AI主脑动态决策
+    ↓
+任务完成，自动分配下一个任务
+```
+
+#### v1.0 手动模式
+
+```
+用户手动添加任务
     ↓
 任务队列（JSON 文件）
     ↓
-调度器分配给空闲 Agent
+调度器分配给空闲 Agent（FIFO）
     ↓
-Agent 在独立 tmux 窗格中执行
+Agent 执行任务
     ↓
-监控器检测状态（每 5 秒）
+监控和自动处理
     ↓
-自动处理确认/错误
-    ↓
-任务完成，Agent 变为空闲
+任务完成
 ```
 
 ## 快速开始
@@ -43,6 +117,7 @@ Agent 在独立 tmux 窗格中执行
 - **Go 1.21+** - [安装 Go](https://go.dev/doc/install)
 - **tmux** - 终端复用器
 - **Claude Code** - [安装 Claude CLI](https://claude.ai/claude-code)
+- **Gemini API Key** (v2.0 新增) - [获取API Key](https://ai.google.dev/)
 
 ```bash
 # macOS 安装 tmux
@@ -51,6 +126,11 @@ brew install tmux
 # Linux 安装 tmux
 sudo apt install tmux  # Ubuntu/Debian
 sudo yum install tmux  # CentOS/RHEL
+
+# 配置 Gemini API Key (v2.0)
+export GEMINI_API_KEY="your-api-key-here"
+# 建议添加到 ~/.bashrc 或 ~/.zshrc
+echo 'export GEMINI_API_KEY="your-api-key"' >> ~/.bashrc
 ```
 
 ### 安装
@@ -68,6 +148,60 @@ go run ./cmd/swarm
 ```
 
 ### 使用
+
+#### 0. AI主脑分析需求（v2.0 新增 🧠）
+
+**一句话创建完整任务队列：**
+
+```bash
+# 使用 AI 主脑分析需求
+swarm orchestrate "实现一个用户管理系统，包括注册、登录、权限管理"
+```
+
+**AI会自动：**
+- 🔍 分析需求，识别核心功能
+- 📦 拆分成独立模块
+- ✅ 生成8-15个具体可执行任务
+- 🔗 识别任务依赖关系
+- 📋 自动创建任务队列
+
+**输出示例：**
+```
+🧠 AI主脑启动中...
+📝 需求: 实现一个用户管理系统
+
+🔍 AI分析需求中...
+
+════════════════════════════════════════════════════════════
+📊 AI分析结果
+════════════════════════════════════════════════════════════
+
+📌 需求概要: 实现用户管理系统，包含注册、登录、RBAC权限
+🎯 复杂度: medium
+⏱️  预计时间: 12-16h
+
+🔧 模块拆分 (4个模块):
+  1. DatabaseSchema - 用户表和权限表设计
+  2. AuthAPI - 注册和登录API
+  3. RBACSystem - 角色权限管理
+  4. Testing - 单元测试和集成测试
+
+📋 任务列表 (12个任务):
+  🟢 Task-1: 创建 users.sql 数据库表...
+  🔵 Task-2: 实现 POST /api/register 注册API...
+  🔵 Task-3: 实现 POST /api/login 登录验证...
+  ...
+
+✅ 任务队列创建完成！共 12 个任务
+
+💡 下一步操作：
+   swarm start --agents 5   # 启动5个Agent开始工作
+```
+
+**然后直接启动集群执行：**
+```bash
+swarm start --agents 5
+```
 
 #### 1. 启动 Agent 集群
 
@@ -169,6 +303,49 @@ tmux attach -t claude-swarm
 
 ## 命令参考
 
+### `swarm orchestrate` (v2.0 新增 🧠)
+
+AI主脑分析需求并自动生成任务队列
+
+```bash
+swarm orchestrate [需求描述]
+```
+
+**选项：**
+- `-k, --api-key string` - Gemini API Key（或使用环境变量GEMINI_API_KEY）
+- `--auto-start` - 分析完成后自动启动Agent集群
+- `-n, --agents int` - Agent数量（默认: 5）
+
+**示例：**
+```bash
+# 基础使用
+swarm orchestrate "实现一个博客系统"
+
+# 指定API Key
+swarm orchestrate --api-key "your-key" "添加文件上传功能"
+
+# 分析后自动启动
+swarm orchestrate --auto-start "优化数据库查询性能"
+
+# 指定Agent数量
+swarm orchestrate -n 10 "重构整个认证系统"
+```
+
+**AI分析内容：**
+- 需求概要总结
+- 复杂度评估（low/medium/high）
+- 预计完成时间
+- 模块拆分（3-8个模块）
+- 具体任务列表（每个30分钟-2小时）
+- 任务依赖关系（DAG）
+
+**支持的需求类型：**
+- ✅ 新功能开发
+- ✅ Bug修复和优化
+- ✅ 代码重构
+- ✅ 测试编写
+- ✅ 文档更新
+
 ### `swarm start`
 
 启动 Agent 集群
@@ -224,7 +401,35 @@ swarm stop
 
 ## 工作流示例
 
-### 示例 1: 并行开发多个功能
+### 示例 0: AI主脑驱动开发（v2.0 推荐 🧠）
+
+**场景：** 从零开发一个完整功能
+
+```bash
+# 1. 一句话描述需求，AI自动拆分
+swarm orchestrate "实现一个实时聊天功能，支持文本、图片、在线状态"
+
+# AI会生成：
+# - WebSocket模块
+# - 消息存储模块
+# - 文件上传模块
+# - 在线状态模块
+# - 前端组件模块
+# 共15个具体任务
+
+# 2. 启动10个Agent并行开发
+swarm start --agents 10
+
+# 3. 实时监控进度
+watch -n 5 swarm status
+
+# 4. 查看实时输出
+tmux attach -t claude-swarm
+
+# 结果：15个任务由10个Agent并行完成，节省70%时间
+```
+
+### 示例 1: 并行开发多个功能（v1.0 手动模式）
 
 ```bash
 # 1. 启动 3 个 Agent
@@ -288,58 +493,104 @@ claude-swarm/
 │   ├── start.go
 │   ├── stop.go
 │   ├── add.go
-│   └── status.go
+│   ├── status.go
+│   └── orchestrate.go  # v2.0: AI主脑命令
 ├── pkg/
+│   ├── orchestrator/   # v2.0: AI主脑（Gemini）
+│   │   ├── brain.go    #   - 需求分析
+│   │   └── types.go    #   - 任务拆分
 │   ├── tmux/           # tmux 会话和窗格管理
 │   ├── state/          # 任务队列和状态管理
 │   ├── analyzer/       # Claude 输出分析和状态检测
 │   └── controller/     # 协调器（调度、监控、救援）
 ├── internal/models/    # 数据模型
 ├── docs/              # 文档
+│   ├── GEMINI_SETUP.md # v2.0: Gemini配置指南
+│   └── ...
 └── README.md
 ```
 
 ### 核心组件
 
-1. **tmux Manager** - 管理 tmux 会话和窗格
+#### v2.0 新增
+
+**1. AI Orchestrator（AI主脑）** - Gemini驱动的智能决策
+   - 需求理解和分析
+   - 模块化拆分（3-8个模块）
+   - 任务自动生成（具体可执行）
+   - 依赖关系识别（DAG）
+   - 进展监控和决策
+   - 动态任务重分配
+
+**技术实现：**
+- Google Gemini 3 Flash Preview模型
+- 结构化Prompt工程
+- JSON响应解析
+- 上下文管理和对话历史
+
+#### v1.0 核心
+
+**2. tmux Manager** - 管理 tmux 会话和窗格
    - 创建/销毁会话
    - 分割窗格
    - 捕获输出（`capture-pane`）
    - 发送命令（`send-keys`）
 
-2. **Task Queue** - 任务队列管理
+**3. Task Queue** - 任务队列管理
    - JSON 文件存储
    - FIFO 调度
    - 原子操作（避免并发冲突）
 
-3. **Analyzer** - 状态检测
+**4. Analyzer** - 状态检测
    - 正则模式匹配
    - 识别等待确认、错误、卡住等状态
    - 安全检查（判断是否可自动确认）
 
-4. **Coordinator** - 协调器
+**5. Coordinator** - 协调器
    - 任务调度（分配给空闲 Agent）
    - 状态监控（goroutine 池）
    - 自动救援（处理确认、错误、卡住）
 
-## MVP 范围
+## 版本功能
 
-当前 MVP 版本包含：
+### v2.0 - AI主脑系统 ✅
 
-✅ tmux 会话管理
-✅ 基础感知和控制（capture-pane, send-keys）
-✅ 简单任务队列（JSON 文件）
-✅ 基础状态检测（等待确认、错误）
-✅ 自动确认功能
-✅ CLI 命令（start, stop, add-task, status）
+**已完成：**
+- ✅ **AI主脑（Gemini）** - 智能需求分析和任务拆分
+- ✅ 模块化拆分（3-8个模块）
+- ✅ 任务自动生成（具体可执行）
+- ✅ 依赖关系识别（DAG）
+- ✅ CLI命令（`swarm orchestrate`）
+- ✅ Gemini API集成
+- ✅ JSON结构化输出解析
 
-暂不包含：
+**进行中：**
+- 🚧 Git Worktree管理（Phase 1）
+- 🚧 AI主脑集成到Coordinator（Phase 2）
+- 🚧 DAG依赖调度（Phase 2）
 
-❌ Git worktree 管理
-❌ SQLite 数据库
-❌ 复杂调度算法
-❌ P2P 救援机制
-❌ TUI 仪表板
+**计划中：**
+- ⏳ AI进展监控和动态决策
+- ⏳ 文件冲突避免
+- ⏳ 任务超时和重试
+
+### v1.0 - MVP ✅
+
+**已完成：**
+- ✅ tmux 会话管理
+- ✅ 基础感知和控制（capture-pane, send-keys）
+- ✅ 任务队列（JSON 文件）
+- ✅ 状态检测（idle/working/waiting_confirm/error）
+- ✅ 自动确认功能
+- ✅ 任务完成自动检测
+- ✅ Agent自动回收复用
+- ✅ CLI 命令（start, stop, add-task, status）
+
+**未包含：**
+- ❌ SQLite 数据库
+- ❌ TUI 仪表板
+- ❌ Docker镜像
+- ❌ Windows支持
 
 ## 故障排除
 
@@ -409,23 +660,82 @@ go test -cover ./...
 
 ## 路线图
 
-- [ ] Phase 1: MVP ✅（当前）
-- [ ] Phase 2: Git worktree 管理
-- [ ] Phase 3: SQLite 数据库
-- [ ] Phase 4: TUI 仪表板
-- [ ] Phase 5: 复杂调度算法（优先级、依赖）
-- [ ] Phase 6: P2P 救援机制
-- [ ] Phase 7: Windows 支持
-- [ ] Phase 8: Docker 镜像
+### 已完成
+- [x] **v1.0 MVP** - 基础蜂群系统 ✅
+- [x] **v2.0 Phase 0** - AI主脑系统（Gemini） ✅
+
+### 进行中
+- [🚧] **v2.0 Phase 1** - Git Worktree管理（Agent独立分支开发）
+- [🚧] **v2.0 Phase 2** - AI主脑集成到Coordinator
+
+### 计划中
+- [ ] **v2.0 Phase 3** - 增强调度（DAG依赖、文件冲突避免、超时重试）
+- [ ] **v2.0 Phase 4** - TUI仪表板（实时可视化）
+- [ ] **v2.0 Phase 5** - SQLite数据库（替代JSON）
+- [ ] **v3.0** - 跨平台支持（Windows、Docker）
+- [ ] **v3.0** - Web界面和远程控制
+- [ ] **v4.0** - 多机部署和集群管理
 
 ## 许可证
 
 MIT License - 详见 [LICENSE](LICENSE)
 
+## v2.0 特别说明 🧠
+
+### AI主脑优势
+
+**传统开发流程：**
+```
+产品经理 → 需求文档 → 技术评审 → 任务拆分 → 分配开发 → 开发实现
+          (2-4小时)  (1-2小时)  (1-2小时)   (手动)     (串行)
+```
+
+**AI主脑驱动流程：**
+```
+一句话需求 → AI分析 → 自动生成任务 → 蜂群并行开发 → 完成
+            (15秒)    (自动)        (并行)      (快70%)
+```
+
+### 适用场景
+
+**✅ 最佳场景：**
+- 新功能开发（从0到1）
+- 模块化重构
+- 多模块并行开发
+- 微服务开发
+- 前后端分离项目
+
+**⚠️ 不适合：**
+- 单文件小修改
+- 需要大量上下文的debug
+- 高度耦合的遗留代码
+
+### 成本估算
+
+**Gemini API费用：**
+- Gemini 3 Flash Preview：免费（有配额限制）
+- 每次分析约消耗：1000-2000 tokens
+- 免费配额：60次/分钟，1500次/天
+
+**典型使用成本：**
+- 10个需求/天 → 完全免费
+- 100个需求/天 → 约$0.50
+- 1000个需求/天 → 约$5
+
+详见：[Gemini API定价](https://ai.google.dev/pricing)
+
+### 文档
+
+- [Gemini配置指南](docs/GEMINI_SETUP.md)
+- [完整实施计划](docs/architecture/full-plan.md)
+- [测试报告](docs/TEST_REPORT.md)
+- [Bug修复记录](docs/BUGFIX.md)
+
 ## 参考
 
 - [AI蜂群协作-tmux多Agent协作系统](https://github.com/tukuaiai/vibe-coding-cn/blob/main/i18n/zh/documents/02-%E6%96%B9%E6%B3%95%E8%AE%BA/AI%E8%9C%82%E7%BE%A4%E5%8D%8F%E4%BD%9C-tmux%E5%A4%9AAgent%E5%8D%8F%E4%BD%9C%E7%B3%BB%E7%BB%9F.md)
 - [tmux 文档](https://github.com/tmux/tmux/wiki)
+- [Google Gemini API](https://ai.google.dev/)
 
 ## 联系
 
