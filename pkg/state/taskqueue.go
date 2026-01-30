@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/yourusername/claude-swarm/internal/models"
@@ -14,7 +15,8 @@ import (
 // TaskQueue manages tasks using a JSON file
 type TaskQueue struct {
 	filePath string
-	mu       sync.Mutex
+	mu       sync.Mutex      // In-process synchronization
+	lockFile *os.File        // Cross-process file lock
 	tasks    map[string]*models.Task
 }
 
@@ -24,13 +26,24 @@ type taskFile struct {
 
 // NewTaskQueue creates a new task queue
 func NewTaskQueue(filePath string) (*TaskQueue, error) {
+	// Validate and expand file path
+	if filePath == "" {
+		return nil, fmt.Errorf("filePath cannot be empty")
+	}
+
 	// Expand ~ to home directory
-	if filePath[:2] == "~/" {
+	if len(filePath) >= 2 && filePath[:2] == "~/" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get home directory: %w", err)
 		}
 		filePath = filepath.Join(home, filePath[2:])
+	} else if filePath == "~" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get home directory: %w", err)
+		}
+		filePath = home
 	}
 
 	// Create directory if it doesn't exist
@@ -39,8 +52,16 @@ func NewTaskQueue(filePath string) (*TaskQueue, error) {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
+	// Create or open lock file
+	lockFilePath := filePath + ".lock"
+	lockFile, err := os.OpenFile(lockFilePath, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create lock file: %w", err)
+	}
+
 	tq := &TaskQueue{
 		filePath: filePath,
+		lockFile: lockFile,
 		tasks:    make(map[string]*models.Task),
 	}
 
@@ -49,14 +70,24 @@ func NewTaskQueue(filePath string) (*TaskQueue, error) {
 		// If file doesn't exist, create an empty one
 		if os.IsNotExist(err) {
 			if err := tq.save(); err != nil {
+				lockFile.Close()
 				return nil, err
 			}
 		} else {
+			lockFile.Close()
 			return nil, err
 		}
 	}
 
 	return tq, nil
+}
+
+// Close closes the task queue and releases the file lock
+func (tq *TaskQueue) Close() error {
+	if tq.lockFile != nil {
+		return tq.lockFile.Close()
+	}
+	return nil
 }
 
 // AddTask adds a new task to the queue
@@ -166,6 +197,12 @@ func (tq *TaskQueue) ListTasks() []*models.Task {
 
 // load loads tasks from the JSON file
 func (tq *TaskQueue) load() error {
+	// Acquire shared lock for reading (multiple readers allowed)
+	if err := syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_SH); err != nil {
+		return fmt.Errorf("failed to acquire read lock: %w", err)
+	}
+	defer syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_UN)
+
 	data, err := os.ReadFile(tq.filePath)
 	if err != nil {
 		return err
@@ -184,8 +221,14 @@ func (tq *TaskQueue) load() error {
 	return nil
 }
 
-// save saves tasks to the JSON file
+// save saves tasks to the JSON file using atomic write
 func (tq *TaskQueue) save() error {
+	// Acquire exclusive lock for writing (no other readers or writers)
+	if err := syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("failed to acquire write lock: %w", err)
+	}
+	defer syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_UN)
+
 	tasks := make([]*models.Task, 0, len(tq.tasks))
 	for _, task := range tq.tasks {
 		tasks = append(tasks, task)
@@ -197,8 +240,16 @@ func (tq *TaskQueue) save() error {
 		return fmt.Errorf("failed to marshal tasks: %w", err)
 	}
 
-	if err := os.WriteFile(tq.filePath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write tasks file: %w", err)
+	// Atomic write: write to temp file then rename
+	tmpFile := tq.filePath + ".tmp"
+	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	// Atomic rename (overwrites target file atomically)
+	if err := os.Rename(tmpFile, tq.filePath); err != nil {
+		os.Remove(tmpFile) // Clean up temp file on error
+		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	return nil

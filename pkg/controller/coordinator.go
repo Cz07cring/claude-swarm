@@ -23,6 +23,7 @@ type Coordinator struct {
 	session         *tmux.Session
 	agents          []*Agent
 	taskQueue       *state.TaskQueue
+	agentStateMgr   *state.AgentStateManager
 	worktreeManager *git.WorktreeManager
 	mergeManager    *git.MergeManager
 	mergeMu         sync.Mutex
@@ -46,10 +47,11 @@ type Agent struct {
 
 // CoordinatorConfig holds configuration for the coordinator
 type CoordinatorConfig struct {
-	NumAgents       int
-	SessionName     string
-	TaskQueuePath   string
-	MonitorInterval time.Duration
+	NumAgents        int
+	SessionName      string
+	TaskQueuePath    string
+	AgentStatePath   string
+	MonitorInterval  time.Duration
 }
 
 // NewCoordinator creates a new coordinator
@@ -66,6 +68,16 @@ func NewCoordinator(config CoordinatorConfig) (*Coordinator, error) {
 	taskQueue, err := state.NewTaskQueue(config.TaskQueuePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task queue: %w", err)
+	}
+
+	// Create agent state manager
+	agentStatePath := config.AgentStatePath
+	if agentStatePath == "" {
+		agentStatePath = "~/.claude-swarm/agents.json"
+	}
+	agentStateMgr, err := state.NewAgentStateManager(agentStatePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create agent state manager: %w", err)
 	}
 
 	// Get current working directory as repository path
@@ -97,6 +109,7 @@ func NewCoordinator(config CoordinatorConfig) (*Coordinator, error) {
 		session:         session,
 		agents:          make([]*Agent, 0, config.NumAgents),
 		taskQueue:       taskQueue,
+		agentStateMgr:   agentStateMgr,
 		worktreeManager: worktreeManager,
 		mergeManager:    mergeManager,
 		ctx:             ctx,
@@ -190,6 +203,10 @@ func (c *Coordinator) Start() {
 	c.wg.Add(1)
 	go c.runRescue()
 
+	// Start agent state persister
+	c.wg.Add(1)
+	go c.runStatePersister()
+
 	log.Println("✓ All goroutines started")
 }
 
@@ -198,6 +215,15 @@ func (c *Coordinator) Stop() error {
 	log.Println("Stopping coordinator...")
 	c.cancel()
 	c.wg.Wait()
+
+	// Save final agent state
+	if c.agentStateMgr != nil {
+		statuses := c.GetAgentStatus()
+		if err := c.agentStateMgr.UpdateAgents(statuses); err != nil {
+			log.Printf("⚠️  Failed to save final agent state: %v", err)
+		}
+		c.agentStateMgr.Close()
+	}
 
 	// Clean up worktrees
 	log.Println("Cleaning up worktrees...")
@@ -221,7 +247,12 @@ func (c *Coordinator) Stop() error {
 
 // monitorAgent monitors a single agent
 func (c *Coordinator) monitorAgent(agent *Agent) {
-	defer c.wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("❌ PANIC in monitorAgent for %s: %v\nStack trace will be logged by runtime", agent.ID, r)
+		}
+		c.wg.Done()
+	}()
 
 	ticker := time.NewTicker(c.monitorInterval)
 	defer ticker.Stop()
@@ -255,30 +286,53 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 			if taskCompleted {
 				log.Printf("📊 %s: 检测到任务完成 (task: %s, state: %s)", agent.ID, currentTask.ID, detectedState)
 
-				// 任务完成，触发合并
+				// 保存必要信息在锁外执行合并
 				taskID := currentTask.ID
 
 				// 临时释放锁以执行合并（避免死锁）
 				agent.mu.Unlock()
 
 				log.Printf("🔀 开始合并 %s 的工作到 main 分支...", agent.ID)
-				if err := c.mergeAgentWork(agent); err != nil {
-					log.Printf("❌ 合并失败 - %s: %v", agent.ID, err)
-					_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
+				mergeErr := c.mergeAgentWork(agent)
+
+				// 重新获取锁，验证状态是否仍然有效
+				agent.mu.Lock()
+
+				// 验证：确保任务仍然是我们处理的那个任务
+				if agent.Status.CurrentTask != nil && agent.Status.CurrentTask.ID == taskID {
+					// 状态仍然有效，可以安全更新
+					if mergeErr != nil {
+						log.Printf("❌ 合并失败 - %s: %v", agent.ID, mergeErr)
+						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
+					} else {
+						log.Printf("✅ 合并成功 - 任务 %s 已完成", taskID)
+						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
+					}
+
+					// 清空任务
+					agent.Status.CurrentTask = nil
+					agent.Status.State = models.AgentStateIdle
+					agent.Status.LastUpdate = time.Now()
+					agent.Status.Output = agent.Detector.GetRecentOutput(10)
+
+					log.Printf("🔄 %s state changed: %s → %s (task completed)", agent.ID, prevState, models.AgentStateIdle)
 				} else {
-					log.Printf("✅ 合并成功 - 任务 %s 已完成", taskID)
-					_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
+					// 状态已被其他 goroutine 修改，记录警告
+					log.Printf("⚠️  %s: 任务状态在合并过程中已变更 (expected: %s, current: %v)",
+						agent.ID, taskID, agent.Status.CurrentTask)
+
+					// 仍然更新任务队列中的状态
+					if mergeErr != nil {
+						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
+					} else {
+						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
+					}
 				}
 
-				// 重新获取锁并清空任务
-				agent.mu.Lock()
-				agent.Status.CurrentTask = nil
-				agent.Status.State = models.AgentStateIdle
-				agent.Status.LastUpdate = time.Now()
-				agent.Status.Output = agent.Detector.GetRecentOutput(10)
 				agent.mu.Unlock()
 
-				log.Printf("🔄 %s state changed: %s → %s (task completed)", agent.ID, prevState, models.AgentStateIdle)
+				// 跳过后续的正常状态更新逻辑
+				continue
 			} else {
 				// 正常状态更新
 				agent.Status.State = detectedState
@@ -301,7 +355,12 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 
 // runScheduler runs the task scheduler
 func (c *Coordinator) runScheduler() {
-	defer c.wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("❌ PANIC in runScheduler: %v\nStack trace will be logged by runtime", r)
+		}
+		c.wg.Done()
+	}()
 
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -361,7 +420,12 @@ func (c *Coordinator) runScheduler() {
 
 // runRescue runs the rescue engine
 func (c *Coordinator) runRescue() {
-	defer c.wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("❌ PANIC in runRescue: %v\nStack trace will be logged by runtime", r)
+		}
+		c.wg.Done()
+	}()
 
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
@@ -634,4 +698,24 @@ func (c *Coordinator) shouldPushToRemote() bool {
 		return false
 	}
 	return true
+}
+
+// runStatePersister periodically saves agent state to file
+func (c *Coordinator) runStatePersister() {
+	defer c.wg.Done()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-ticker.C:
+			statuses := c.GetAgentStatus()
+			if err := c.agentStateMgr.UpdateAgents(statuses); err != nil {
+				log.Printf("⚠️  Failed to save agent state: %v", err)
+			}
+		}
+	}
 }
