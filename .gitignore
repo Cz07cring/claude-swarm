@@ -1,0 +1,42 @@
+# 编译产物
+swarm
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试二进制文件
+*.test
+
+# 输出覆盖率
+*.out
+
+# Go workspace 文件
+go.work
+
+# 依赖目录
+vendor/
+
+# 日志文件
+*.log
+/tmp/
+
+# 任务队列数据
+.claude-swarm/
+*.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# 临时文件
+*.tmp
+test-file.txt
+hello.go
