@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -27,8 +28,18 @@ type OrchestratorBrain struct {
 func NewOrchestratorBrain(apiKey string, taskQueue *state.TaskQueue) (*OrchestratorBrain, error) {
 	ctx := context.Background()
 
-	// 初始化Gemini客户端（从环境变量读取API Key）
-	client, err := genai.NewClient(ctx, nil)
+	// 如果没有传入 apiKey，尝试从环境变量读取
+	if apiKey == "" {
+		apiKey = os.Getenv("GEMINI_API_KEY")
+		if apiKey == "" {
+			return nil, fmt.Errorf("gemini API key is required (pass as parameter or set GEMINI_API_KEY env var)")
+		}
+	}
+
+	// 初始化Gemini客户端（使用 apiKey）
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey: apiKey,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
 	}

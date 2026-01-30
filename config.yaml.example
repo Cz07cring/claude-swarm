@@ -1,0 +1,39 @@
+# Claude Swarm 配置文件示例
+# 复制此文件为 config.yaml 并填入你的配置
+
+# Gemini API 配置
+gemini:
+  # Gemini API Key (必填)
+  # 获取地址: https://ai.google.dev/
+  api_key: "your-gemini-api-key-here"
+  
+  # 模型名称 (可选，默认: gemini-3-flash-preview)
+  model: "gemini-3-flash-preview"
+  
+  # API 超时时间（秒）(可选，默认: 30)
+  timeout: 30
+
+# Swarm 配置
+swarm:
+  # 默认 Agent 数量 (可选，默认: 3)
+  default_agents: 3
+  
+  # 监控间隔（秒）(可选，默认: 5)
+  monitor_interval: 5
+  
+  # tmux 会话名称 (可选，默认: claude-swarm)
+  session_name: "claude-swarm"
+  
+  # 任务队列文件路径 (可选，默认: ~/.claude-swarm/tasks.json)
+  task_queue_path: "~/.claude-swarm/tasks.json"
+
+# Git Worktree 配置
+git:
+  # 仓库路径 (可选，默认: 当前目录)
+  repo_path: "."
+  
+  # Worktrees 目录 (可选，默认: .worktrees)
+  worktrees_dir: ".worktrees"
+  
+  # 主分支名称 (可选，默认: main)
+  main_branch: "main"

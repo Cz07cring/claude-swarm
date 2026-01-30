@@ -37,6 +37,7 @@ func runStop() {
 		fmt.Printf("⚠️  会话 %s 不存在或已停止\n", session)
 		// 即使会话不存在，也尝试清理 worktrees
 		cleanupWorktrees()
+		cleanupPidFile(session)
 		return
 	}
 
@@ -47,10 +48,27 @@ func runStop() {
 	killCmd := exec.Command("tmux", "kill-session", "-t", session)
 	if err := killCmd.Run(); err != nil {
 		fmt.Printf("❌ 停止会话失败: %v\n", err)
+		cleanupPidFile(session)
 		return
 	}
 
+	// 清理 PID 文件
+	cleanupPidFile(session)
+
 	fmt.Println("✓ 已停止")
+}
+
+// cleanupPidFile 清理 PID 文件
+func cleanupPidFile(sessionName string) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	pidFile := filepath.Join(homeDir, ".claude-swarm", fmt.Sprintf("%s.pid", sessionName))
+	if err := os.Remove(pidFile); err != nil && !os.IsNotExist(err) {
+		fmt.Printf("⚠️  清理 PID 文件失败: %v\n", err)
+	}
 }
 
 func cleanupWorktrees() {

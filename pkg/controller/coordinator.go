@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -238,39 +239,61 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 			}
 
 			// Analyze state
-			state := agent.Detector.Analyze(output)
+			detectedState := agent.Detector.Analyze(output)
 
 			// Update agent status
 			agent.mu.Lock()
 			prevState := agent.Status.State
-			agent.Status.State = state
-			agent.Status.LastUpdate = time.Now()
-			agent.Status.Output = agent.Detector.GetRecentOutput(10)
+			currentTask := agent.Status.CurrentTask
 
-			// 🐛 FIX: 当agent完成任务回到idle状态时，更新任务状态为completed
-			if prevState != models.AgentStateIdle && state == models.AgentStateIdle {
-				if agent.Status.CurrentTask != nil {
-					taskID := agent.Status.CurrentTask.ID
+			// 智能状态更新：如果有任务且检测到idle或waiting_confirm，说明任务刚完成
+			taskCompleted := currentTask != nil &&
+				prevState != models.AgentStateIdle &&
+				prevState != models.AgentStateWaitingConfirm &&
+				(detectedState == models.AgentStateIdle || detectedState == models.AgentStateWaitingConfirm)
 
-					// 尝试合并Agent的工作到main
-					if err := c.mergeAgentWork(agent); err != nil {
-						log.Printf("❌ Failed to merge work from %s: %v", agent.ID, err)
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
-					} else {
-						log.Printf("✅ Task %s completed and merged by %s", taskID, agent.ID)
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
-					}
+			if taskCompleted {
+				log.Printf("📊 %s: 检测到任务完成 (task: %s, state: %s)", agent.ID, currentTask.ID, detectedState)
 
-					// 清空当前任务
-					agent.Status.CurrentTask = nil
+				// 任务完成，触发合并
+				taskID := currentTask.ID
+
+				// 临时释放锁以执行合并（避免死锁）
+				agent.mu.Unlock()
+
+				log.Printf("🔀 开始合并 %s 的工作到 main 分支...", agent.ID)
+				if err := c.mergeAgentWork(agent); err != nil {
+					log.Printf("❌ 合并失败 - %s: %v", agent.ID, err)
+					_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
+				} else {
+					log.Printf("✅ 合并成功 - 任务 %s 已完成", taskID)
+					_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
 				}
-			}
 
-			agent.mu.Unlock()
+				// 重新获取锁并清空任务
+				agent.mu.Lock()
+				agent.Status.CurrentTask = nil
+				agent.Status.State = models.AgentStateIdle
+				agent.Status.LastUpdate = time.Now()
+				agent.Status.Output = agent.Detector.GetRecentOutput(10)
+				agent.mu.Unlock()
 
-			// Log state changes for debugging
-			if prevState != state {
-				log.Printf("🔄 %s state changed: %s → %s", agent.ID, prevState, state)
+				log.Printf("🔄 %s state changed: %s → %s (task completed)", agent.ID, prevState, models.AgentStateIdle)
+			} else {
+				// 正常状态更新
+				agent.Status.State = detectedState
+				agent.Status.LastUpdate = time.Now()
+				agent.Status.Output = agent.Detector.GetRecentOutput(10)
+				agent.mu.Unlock()
+
+				// Log state changes for debugging
+				if prevState != detectedState {
+					hasTaskStr := "no task"
+					if currentTask != nil {
+						hasTaskStr = fmt.Sprintf("task: %s", currentTask.ID)
+					}
+					log.Printf("🔄 %s state changed: %s → %s (%s)", agent.ID, prevState, detectedState, hasTaskStr)
+				}
 			}
 		}
 	}
@@ -310,19 +333,23 @@ func (c *Coordinator) runScheduler() {
 					}
 
 					if task != nil {
-						// Assign task to agent
+						// Assign task to agent (不手动设置状态，让 Detector 检测)
 						agent.mu.Lock()
 						agent.Status.CurrentTask = task
-						agent.Status.State = models.AgentStateWorking
 						agent.mu.Unlock()
 
 						// Send task to agent
 						if err := agent.Pane.SendLine(task.Description); err != nil {
 							log.Printf("❌ Error sending task to %s: %v", agent.ID, err)
+							// 任务发送失败，清空 CurrentTask
+							agent.mu.Lock()
+							agent.Status.CurrentTask = nil
+							agent.mu.Unlock()
+							_ = c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending)
 							continue
 						}
 
-						log.Printf("📋 Assigned task %s to %s: %s", task.ID, agent.ID, task.Description)
+						log.Printf("📋 已分配任务 %s 给 %s: %s", task.ID, agent.ID, task.Description)
 					} else {
 						log.Printf("📅 No pending tasks available")
 					}
@@ -426,11 +453,30 @@ func (c *Coordinator) mergeAgentWork(agent *Agent) error {
 
 	agentID := strings.TrimPrefix(agent.ID, "agent-")
 	branchName := fmt.Sprintf("agent-%s-branch", agentID)
+	worktreePath := filepath.Join(c.repoPath, ".worktrees", fmt.Sprintf("agent-%s", agentID))
 
 	log.Printf("🔀 Merging %s to main...", branchName)
 
+	// 0. Commit any uncommitted changes in agent's worktree
+	cmd := exec.Command("git", "-C", worktreePath, "add", ".")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("⚠️  Failed to stage changes in agent worktree: %v, output: %s", err, string(output))
+	}
+
+	cmd = exec.Command("git", "-C", worktreePath, "diff-index", "--quiet", "HEAD")
+	if err := cmd.Run(); err != nil {
+		// There are changes to commit
+		commitMsg := fmt.Sprintf("Agent %s: 自动提交任务完成的更改", agentID)
+		cmd = exec.Command("git", "-C", worktreePath, "commit", "-m", commitMsg)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("⚠️  Failed to commit changes in agent worktree: %v, output: %s", err, string(output))
+		} else {
+			log.Printf("✓ Auto-committed changes in %s", branchName)
+		}
+	}
+
 	// 1. Switch to main branch
-	cmd := exec.Command("git", "-C", c.repoPath, "checkout", "main")
+	cmd = exec.Command("git", "-C", c.repoPath, "checkout", "main")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to checkout main: %w, output: %s", err, string(output))
 	}

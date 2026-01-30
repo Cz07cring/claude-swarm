@@ -137,7 +137,7 @@ echo 'export GEMINI_API_KEY="your-api-key"' >> ~/.bashrc
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/claude-swarm.git
+git clone https://github.com/Cz07cring/claude-swarm.git
 cd claude-swarm
 
 # 构建
@@ -739,8 +739,8 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ## 联系
 
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Issues: [GitHub Issues](https://github.com/yourusername/claude-swarm/issues)
+- GitHub: [@Cz07cring](https://github.com/Cz07cring)
+- Issues: [GitHub Issues](https://github.com/Cz07cring/claude-swarm/issues)
 
 ---
 
