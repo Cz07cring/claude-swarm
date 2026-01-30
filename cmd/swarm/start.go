@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -42,6 +44,35 @@ func init() {
 func runStart() {
 	log.SetFlags(0) // 移除时间戳前缀
 
+	// 🔧 FIX: 验证 agent 数量
+	if numAgents <= 0 {
+		log.Fatalf("❌ Agent 数量必须大于 0（当前值: %d）", numAgents)
+	}
+
+	if numAgents > 100 {
+		fmt.Printf("⚠️  Agent 数量过多 (%d)，建议不超过 100 个\n", numAgents)
+		fmt.Print("是否继续? (y/N): ")
+
+		reader := bufio.NewReader(os.Stdin)
+		response, _ := reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+
+		if response != "y" && response != "yes" {
+			fmt.Println("已取消")
+			os.Exit(0)
+		}
+		fmt.Println()
+	}
+
+	// 🔧 FIX: 验证监控间隔
+	if monitorInterval < 1 {
+		log.Fatalf("❌ 监控间隔必须 >= 1 秒（当前值: %d）", monitorInterval)
+	}
+
+	if monitorInterval > 60 {
+		fmt.Printf("⚠️  监控间隔过长 (%d 秒)，可能影响响应速度\n", monitorInterval)
+	}
+
 	fmt.Println("🚀 启动 Claude Agent Swarm...")
 	fmt.Println()
 
@@ -62,6 +93,7 @@ func runStart() {
 		NumAgents:       numAgents,
 		SessionName:     sessionName,
 		TaskQueuePath:   taskQueuePath,
+		AgentStatePath:  "~/.claude-swarm/agents.json",
 		MonitorInterval: time.Duration(monitorInterval) * time.Second,
 	}
 
@@ -70,6 +102,24 @@ func runStart() {
 	if err != nil {
 		log.Fatalf("❌ 创建协调器失败: %v", err)
 	}
+
+	// 🔧 FIX #8: 使用 defer 确保清理总是执行，即使发生 panic
+	stopped := false
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("❌ 主程序 PANIC: %v", r)
+			log.Printf("⚠️  执行清理...")
+		}
+
+		if !stopped {
+			fmt.Println("\n\n⏹️  执行清理...")
+			if err := coord.Stop(); err != nil {
+				log.Printf("❌ 停止协调器失败: %v", err)
+			} else {
+				fmt.Println("✓ 已停止")
+			}
+		}
+	}()
 
 	// 启动协调器
 	coord.Start()
@@ -85,6 +135,7 @@ func runStart() {
 	if err := coord.Stop(); err != nil {
 		log.Fatalf("❌ 停止协调器失败: %v", err)
 	}
+	stopped = true
 
 	fmt.Println("✓ 已停止")
 }
