@@ -69,12 +69,14 @@ func (b *OrchestratorBrain) Close() error {
 }
 
 // AnalyzeRequirement AI分析用户需求
+// Context is properly respected: timeout triggers cleanup, no goroutine leaks
 func (b *OrchestratorBrain) AnalyzeRequirement(ctx context.Context, requirement string) (*AnalysisResult, error) {
 	log.Printf("🧠 AI主脑开始分析需求...")
 
 	prompt := b.buildAnalysisPrompt(requirement)
 
 	// 添加超时控制（2分钟）
+	// The defer cancel() below ensures proper cleanup when function returns
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
