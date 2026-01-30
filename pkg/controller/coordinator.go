@@ -328,10 +328,14 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 					// 状态仍然有效，可以安全更新
 					if mergeErr != nil {
 						log.Printf("❌ 合并失败 - %s: %v", agent.ID, mergeErr)
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
+						if err := c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed); err != nil {
+							log.Printf("⚠️  Failed to update task %s status to failed: %v", taskID, err)
+						}
 					} else {
 						log.Printf("✅ 合并成功 - 任务 %s 已完成", taskID)
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
+						if err := c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted); err != nil {
+							log.Printf("⚠️  Failed to update task %s status to completed: %v", taskID, err)
+						}
 					}
 
 					// 清空任务
@@ -348,9 +352,13 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 
 					// 仍然更新任务队列中的状态
 					if mergeErr != nil {
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
+						if err := c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed); err != nil {
+							log.Printf("⚠️  Failed to update task %s status to failed: %v", taskID, err)
+						}
 					} else {
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
+						if err := c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted); err != nil {
+							log.Printf("⚠️  Failed to update task %s status to completed: %v", taskID, err)
+						}
 					}
 				}
 
@@ -429,7 +437,9 @@ func (c *Coordinator) runScheduler() {
 							agent.mu.Lock()
 							agent.Status.CurrentTask = nil
 							agent.mu.Unlock()
-							_ = c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending)
+							if err := c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending); err != nil {
+								log.Printf("⚠️  Failed to reset task %s status to pending: %v", task.ID, err)
+							}
 							continue
 						}
 

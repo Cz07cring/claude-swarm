@@ -117,14 +117,19 @@ func (tq *TaskQueue) AddTask(task *models.Task) error {
 }
 
 // ClaimTask claims a pending task for an agent (FIFO)
+// This function reloads tasks from disk before claiming to reduce (but not eliminate)
+// the risk of concurrent claims by multiple processes.
+// Note: This is not fully atomic across processes - for production use,
+// consider using a database with proper ACID guarantees.
 func (tq *TaskQueue) ClaimTask(agentID string) (*models.Task, error) {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
 
 	// Reload from file to get latest tasks
+	// This reduces the window for race conditions but doesn't eliminate them
 	if err := tq.load(); err != nil {
-		// If file doesn't exist or can't be read, continue with current tasks
-		// This allows the system to work even if file is temporarily unavailable
+		// Log the error and return - don't proceed with potentially stale data
+		return nil, fmt.Errorf("failed to reload task queue before claiming: %w", err)
 	}
 
 	// Find the oldest pending task
@@ -201,7 +206,12 @@ func (tq *TaskQueue) load() error {
 	if err := syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_SH); err != nil {
 		return fmt.Errorf("failed to acquire read lock: %w", err)
 	}
-	defer syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_UN)
+	defer func() {
+		if err := syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_UN); err != nil {
+			// Log unlock failure - this is serious but we can't return the error
+			fmt.Fprintf(os.Stderr, "⚠️  Failed to release read lock: %v\n", err)
+		}
+	}()
 
 	data, err := os.ReadFile(tq.filePath)
 	if err != nil {
@@ -227,7 +237,12 @@ func (tq *TaskQueue) save() error {
 	if err := syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("failed to acquire write lock: %w", err)
 	}
-	defer syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_UN)
+	defer func() {
+		if err := syscall.Flock(int(tq.lockFile.Fd()), syscall.LOCK_UN); err != nil {
+			// Log unlock failure - this is serious but we can't return the error
+			fmt.Fprintf(os.Stderr, "⚠️  Failed to release write lock: %v\n", err)
+		}
+	}()
 
 	tasks := make([]*models.Task, 0, len(tq.tasks))
 	for _, task := range tq.tasks {
@@ -242,13 +257,21 @@ func (tq *TaskQueue) save() error {
 
 	// Atomic write: write to temp file then rename
 	tmpFile := tq.filePath + ".tmp"
+	
+	// Ensure cleanup of temp file in all error cases
+	defer func() {
+		// Only remove if it still exists (successful rename removes it)
+		if _, err := os.Stat(tmpFile); err == nil {
+			os.Remove(tmpFile)
+		}
+	}()
+	
 	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 
 	// Atomic rename (overwrites target file atomically)
 	if err := os.Rename(tmpFile, tq.filePath); err != nil {
-		os.Remove(tmpFile) // Clean up temp file on error
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
