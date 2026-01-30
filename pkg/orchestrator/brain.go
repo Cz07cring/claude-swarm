@@ -74,15 +74,55 @@ func (b *OrchestratorBrain) AnalyzeRequirement(ctx context.Context, requirement 
 
 	prompt := b.buildAnalysisPrompt(requirement)
 
-	// 调用Gemini API
-	result, err := b.client.Models.GenerateContent(
-		ctx,
-		b.modelName,
-		genai.Text(prompt),
-		nil,
-	)
+	// 添加超时控制（2分钟）
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	// 调用Gemini API with重试机制
+	var result *genai.GenerateContentResponse
+	var err error
+
+	// 指数退避重试策略：1s, 3s, 10s
+	retryDelays := []time.Duration{1 * time.Second, 3 * time.Second, 10 * time.Second}
+	maxAttempts := len(retryDelays) + 1 // 1次初始 + 3次重试
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			log.Printf("⚠️  API调用失败，第 %d/%d 次重试...", attempt, maxAttempts-1)
+
+			// 等待重试延迟
+			select {
+			case <-time.After(retryDelays[attempt-1]):
+				// 继续重试
+			case <-ctx.Done():
+				return nil, fmt.Errorf("API调用取消: %w", ctx.Err())
+			}
+		}
+
+		result, err = b.client.Models.GenerateContent(
+			ctx,
+			b.modelName,
+			genai.Text(prompt),
+			nil,
+		)
+
+		if err == nil {
+			// 成功，退出重试循环
+			break
+		}
+
+		// 检查是否是不可重试的错误
+		if ctx.Err() != nil {
+			// Context 取消或超时，不重试
+			return nil, fmt.Errorf("API调用超时或取消: %w", ctx.Err())
+		}
+
+		// 记录错误，准备重试
+		log.Printf("⚠️  API调用失败 (尝试 %d/%d): %v", attempt+1, maxAttempts, err)
+	}
+
 	if err != nil {
-		return nil, fmt.Errorf("Gemini API调用失败: %w", err)
+		return nil, fmt.Errorf("Gemini API调用失败（已重试%d次）: %w", maxAttempts-1, err)
 	}
 
 	// 获取响应文本
@@ -94,7 +134,7 @@ func (b *OrchestratorBrain) AnalyzeRequirement(ctx context.Context, requirement 
 		return nil, fmt.Errorf("解析AI响应失败: %w\n原始响应: %s", err, responseText)
 	}
 
-	// 保存到上下文
+	// 保存到上下文（限制大小）
 	b.context.Requirement = requirement
 	b.context.AnalysisResult = analysisResult
 	b.context.Conversations = append(b.context.Conversations, Message{
@@ -107,6 +147,14 @@ func (b *OrchestratorBrain) AnalyzeRequirement(ctx context.Context, requirement 
 		Content:   responseText,
 		Timestamp: time.Now(),
 	})
+
+	// 限制上下文大小，防止内存泄漏（保留最近50条对话）
+	const maxConversations = 50
+	if len(b.context.Conversations) > maxConversations {
+		// 保留最近的对话
+		b.context.Conversations = b.context.Conversations[len(b.context.Conversations)-maxConversations:]
+		log.Printf("⚠️  对话历史已满，清理旧对话（保留最近%d条）", maxConversations)
+	}
 
 	log.Printf("✓ AI分析完成: %d个模块, %d个任务", len(analysisResult.Modules), len(analysisResult.Tasks))
 	return analysisResult, nil

@@ -245,6 +245,13 @@ func (c *Coordinator) Stop() error {
 	return nil
 }
 
+// isTmuxSessionAlive checks if the tmux session is still running
+func (c *Coordinator) isTmuxSessionAlive() bool {
+	cmd := exec.Command("tmux", "has-session", "-t", c.session.Name)
+	err := cmd.Run()
+	return err == nil
+}
+
 // monitorAgent monitors a single agent
 func (c *Coordinator) monitorAgent(agent *Agent) {
 	defer func() {
@@ -257,11 +264,29 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 	ticker := time.NewTicker(c.monitorInterval)
 	defer ticker.Stop()
 
+	sessionDeadCount := 0
+	const maxSessionDeadChecks = 3
+
 	for {
 		select {
 		case <-c.ctx.Done():
 			return
 		case <-ticker.C:
+			// 🔧 FIX: Check if tmux session is still alive
+			if !c.isTmuxSessionAlive() {
+				sessionDeadCount++
+				log.Printf("⚠️  tmux 会话 '%s' 不可用 (检查 %d/%d)", c.session.Name, sessionDeadCount, maxSessionDeadChecks)
+
+				if sessionDeadCount >= maxSessionDeadChecks {
+					log.Printf("❌ tmux 会话 '%s' 已终止，停止监控 %s", c.session.Name, agent.ID)
+					log.Printf("⚠️  coordinator 将在所有 agent 监控停止后退出")
+					c.cancel() // 触发所有 goroutine 退出
+					return
+				}
+				continue
+			}
+			sessionDeadCount = 0 // 重置计数器
+
 			// Capture pane output
 			output, err := agent.Pane.Capture()
 			if err != nil {
@@ -510,6 +535,29 @@ func (c *Coordinator) cleanupWorktrees() {
 	}
 }
 
+// validateMergePrerequisites 验证合并前置条件
+func (c *Coordinator) validateMergePrerequisites() error {
+	// 检查仓库状态
+	cmd := exec.Command("git", "-C", c.repoPath, "status", "--porcelain")
+	if _, err := cmd.Output(); err != nil {
+		return fmt.Errorf("无法访问git仓库: %w", err)
+	}
+
+	// 检查当前分支
+	cmd = exec.Command("git", "-C", c.repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("无法获取当前分支: %w", err)
+	}
+
+	currentBranch := strings.TrimSpace(string(output))
+	if currentBranch != "main" {
+		log.Printf("⚠️  当前不在main分支，将切换到main")
+	}
+
+	return nil
+}
+
 // mergeAgentWork merges an agent's work into the main branch
 func (c *Coordinator) mergeAgentWork(agent *Agent) error {
 	c.mergeMu.Lock() // Protect main branch
@@ -521,10 +569,15 @@ func (c *Coordinator) mergeAgentWork(agent *Agent) error {
 
 	log.Printf("🔀 Merging %s to main...", branchName)
 
+	// 验证前置条件
+	if err := c.validateMergePrerequisites(); err != nil {
+		return fmt.Errorf("合并前置条件验证失败: %w", err)
+	}
+
 	// 0. Commit any uncommitted changes in agent's worktree
 	cmd := exec.Command("git", "-C", worktreePath, "add", ".")
 	if output, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("⚠️  Failed to stage changes in agent worktree: %v, output: %s", err, string(output))
+		return fmt.Errorf("无法暂存agent工作区的更改: %w, output: %s", err, string(output))
 	}
 
 	cmd = exec.Command("git", "-C", worktreePath, "diff-index", "--quiet", "HEAD")
@@ -533,48 +586,78 @@ func (c *Coordinator) mergeAgentWork(agent *Agent) error {
 		commitMsg := fmt.Sprintf("Agent %s: 自动提交任务完成的更改", agentID)
 		cmd = exec.Command("git", "-C", worktreePath, "commit", "-m", commitMsg)
 		if output, err := cmd.CombinedOutput(); err != nil {
-			log.Printf("⚠️  Failed to commit changes in agent worktree: %v, output: %s", err, string(output))
-		} else {
-			log.Printf("✓ Auto-committed changes in %s", branchName)
+			// Commit failed - 这可能是严重问题（磁盘满、权限等）
+			return fmt.Errorf("无法提交agent工作区的更改: %w, output: %s", err, string(output))
 		}
+		log.Printf("✓ Auto-committed changes in %s", branchName)
 	}
 
 	// 1. Switch to main branch
 	cmd = exec.Command("git", "-C", c.repoPath, "checkout", "main")
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to checkout main: %w, output: %s", err, string(output))
+		return fmt.Errorf("无法切换到main分支: %w, output: %s", err, string(output))
 	}
 
 	// 2. Pull latest main (if there's a remote)
-	cmd = exec.Command("git", "-C", c.repoPath, "pull", "origin", "main")
-	_ = cmd.Run() // Ignore errors
+	// 检查是否有远程仓库
+	cmd = exec.Command("git", "-C", c.repoPath, "remote", "get-url", "origin")
+	if output, err := cmd.Output(); err == nil && len(output) > 0 {
+		// 有远程仓库，尝试pull
+		cmd = exec.Command("git", "-C", c.repoPath, "pull", "origin", "main")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			// Pull失败 - 可能是网络问题或冲突
+			log.Printf("⚠️  Pull失败（将继续本地合并）: %v, output: %s", err, string(output))
+			// 不返回错误，继续本地合并
+		} else {
+			log.Printf("✓ Pulled latest main from remote")
+		}
+	}
+
+	// 保存当前HEAD，用于回滚
+	cmd = exec.Command("git", "-C", c.repoPath, "rev-parse", "HEAD")
+	originalHead, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("无法获取当前HEAD: %w", err)
+	}
+	originalHeadStr := strings.TrimSpace(string(originalHead))
 
 	// 3. Execute merge
 	result, err := c.mergeManager.MergeBranch(branchName)
 	if err != nil {
 		if err == git.ErrMergeConflict {
-			log.Printf("⚠️  Merge conflict detected: %v", result.Conflicts)
-			log.Printf("🧠 Calling master brain to resolve conflicts...")
+			log.Printf("⚠️  检测到合并冲突: %v", result.Conflicts)
+			log.Printf("🧠 调用主控脑解决冲突...")
 
 			// Call master brain to resolve conflicts
 			if resolveErr := c.resolveMergeConflictWithMasterBrain(branchName, result.Conflicts); resolveErr != nil {
-				log.Printf("❌ Master brain failed to resolve conflicts: %v", resolveErr)
-				_ = c.mergeManager.AbortMerge()
-				return fmt.Errorf("merge conflict could not be resolved: %v", resolveErr)
+				log.Printf("❌ 主控脑无法解决冲突: %v", resolveErr)
+
+				// 中止合并
+				if abortErr := c.mergeManager.AbortMerge(); abortErr != nil {
+					log.Printf("⚠️  中止合并失败: %v", abortErr)
+				}
+
+				return fmt.Errorf("合并冲突无法解决: %v", resolveErr)
 			}
 
-			log.Printf("✅ Master brain successfully resolved conflicts")
+			log.Printf("✅ 主控脑成功解决冲突")
 
 			// Try to complete the merge
 			cmd = exec.Command("git", "-C", c.repoPath, "add", ".")
 			if err := cmd.Run(); err != nil {
 				_ = c.mergeManager.AbortMerge()
-				return fmt.Errorf("failed to stage resolved conflicts: %w", err)
+				return fmt.Errorf("无法暂存已解决的冲突: %w", err)
 			}
 
 			cmd = exec.Command("git", "-C", c.repoPath, "commit", "--no-edit")
 			if output, err := cmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("failed to commit merge: %w, output: %s", err, string(output))
+				// Commit failed - 回滚到原始状态
+				log.Printf("❌ 提交合并失败，回滚到 %s", originalHeadStr[:8])
+				rollbackCmd := exec.Command("git", "-C", c.repoPath, "reset", "--hard", originalHeadStr)
+				if rollbackErr := rollbackCmd.Run(); rollbackErr != nil {
+					log.Printf("⚠️  回滚失败: %v", rollbackErr)
+				}
+				return fmt.Errorf("无法提交合并: %w, output: %s", err, string(output))
 			}
 
 			// Get current commit hash
@@ -584,7 +667,8 @@ func (c *Coordinator) mergeAgentWork(agent *Agent) error {
 			}
 			result.Success = true
 		} else {
-			return err
+			// 其他合并错误
+			return fmt.Errorf("合并失败: %w", err)
 		}
 	}
 
@@ -662,19 +746,29 @@ Working directory: ` + c.repoPath
 	log.Printf("🧠 Master brain is analyzing conflicts...")
 
 	// Wait for master brain to complete (poll for clean status)
-	timeout := time.After(5 * time.Minute)
+	// Use context with timeout to respect coordinator shutdown
+	ctx, cancel := context.WithTimeout(c.ctx, 5*time.Minute)
+	defer cancel()
+
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-timeout:
-			return fmt.Errorf("master brain timed out resolving conflicts")
+		case <-ctx.Done():
+			// Check why context was cancelled
+			if ctx.Err() == context.DeadlineExceeded {
+				return fmt.Errorf("master brain timed out resolving conflicts (5 minutes)")
+			}
+			// Coordinator is shutting down
+			return fmt.Errorf("conflict resolution cancelled: coordinator shutting down")
+
 		case <-ticker.C:
 			// Check if conflicts are resolved
-			cmd := exec.Command("git", "-C", c.repoPath, "diff", "--name-only", "--diff-filter=U")
+			cmd := exec.CommandContext(ctx, "git", "-C", c.repoPath, "diff", "--name-only", "--diff-filter=U")
 			output, err := cmd.Output()
 			if err != nil {
+				// Command failed, continue polling
 				continue
 			}
 
@@ -685,7 +779,8 @@ Working directory: ` + c.repoPath
 				return nil
 			}
 
-			log.Printf("🧠 Master brain still working... (%d conflicts remaining)", len(strings.Split(remainingConflicts, "\n")))
+			conflictCount := len(strings.Split(remainingConflicts, "\n"))
+			log.Printf("🧠 Master brain still working... (%d conflicts remaining)", conflictCount)
 		}
 	}
 }
