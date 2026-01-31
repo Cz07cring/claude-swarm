@@ -10,7 +10,6 @@ import (
 // 🔧 P1 FIX: 支持更多确认格式
 func GetConfirmationInput(context string) string {
 	contextLower := strings.ToLower(context)
-	contextUpper := strings.ToUpper(context)
 
 	// 1. 检查是否是选项列表格式
 	if strings.Contains(context, "❯ 1. Yes") ||
@@ -26,13 +25,13 @@ func GetConfirmationInput(context string) string {
 		return "" // 发送空行（回车）
 	}
 
-	// 3. 🔧 NEW: 支持大写 (Y/N) 格式
-	if strings.Contains(contextUpper, "(Y/N)") {
+	// 3. 🔧 NEW: 支持大写 (Y/N) 格式（检查原始字符串）
+	if strings.Contains(context, "(Y/N)") {
 		return "Y"
 	}
 
-	// 4. 支持小写 (y/n) 格式
-	if strings.Contains(contextLower, "(y/n)") {
+	// 4. 支持小写 (y/n) 格式（检查原始字符串）
+	if strings.Contains(context, "(y/n)") {
 		return "y"
 	}
 

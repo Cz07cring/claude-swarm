@@ -60,10 +60,10 @@ var DangerKeywords = []string{
 
 	// 🔧 NEW: Permission changes
 	"chmod 777",
-	"chmod -R 777",
+	"chmod -r 777",
 	"chmod 666",
-	"chown -R",
-	"chgrp -R",
+	"chown -r",
+	"chgrp -r",
 
 	// Git dangerous operations
 	"git reset --hard",
@@ -83,7 +83,7 @@ var DangerKeywords = []string{
 	// 🔧 NEW: Database management
 	"drop user",
 	"drop role",
-	"alter table drop",
+	"drop column",
 	"revoke all",
 	"grant all privileges",
 

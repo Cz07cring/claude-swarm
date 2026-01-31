@@ -264,10 +264,10 @@ func TestDangerKeywords(t *testing.T) {
 			keyword:     "chown -r",
 		},
 		{
-			name:        "ALTER TABLE DROP",
+			name:        "DROP COLUMN",
 			command:     "ALTER TABLE users DROP COLUMN password;",
 			shouldBlock: true,
-			keyword:     "alter table drop",
+			keyword:     "drop column",
 		},
 		{
 			name:        "REVOKE",
@@ -325,7 +325,7 @@ func TestDangerKeywordsCoverage(t *testing.T) {
 		"Privilege escalation": {"sudo rm", "sudo dd"},
 		"Permission changes": {"chmod 777", "chown -r"},
 		"Git operations": {"git push --force", "git reset --hard"},
-		"Database operations": {"drop table", "drop user", "alter table drop"},
+		"Database operations": {"drop table", "drop user", "drop column"},
 		"Disk operations": {"dd if=", "> /etc/"},
 	}
 
