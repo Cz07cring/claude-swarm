@@ -2,372 +2,374 @@
 
 <div align="center">
 
-**基于 AI 的智能多 Agent 协作开发系统**
+**AI-Powered Multi-Agent Collaborative Development System**
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Gemini](https://img.shields.io/badge/Powered_by-Gemini-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 
-[快速开始](#-快速开始) • [核心特性](#-核心特性) • [使用指南](#-使用指南) • [文档](#-文档)
+[English](README.md) • [简体中文](README_ZH.md)
+
+[Quick Start](#-quick-start) • [Features](#-features) • [Usage](#-usage) • [Documentation](#-documentation)
 
 </div>
 
 ---
 
-## 简介
+## Introduction
 
-Claude Swarm 是一个创新的 **AI 驱动多 Agent 协作系统**，让你只需一句话描述需求，AI 就能自动拆分任务并调度多个 Claude Code 实例并行开发。
+Claude Swarm is an innovative **AI-driven multi-agent collaboration system** that automatically splits tasks and orchestrates multiple Claude Code instances for parallel development with just one sentence describing your requirements.
 
 ```bash
-# 一句话启动完整开发流程
-swarm orchestrate "实现一个 Todo 应用，包括添加、删除、完成功能"
+# Launch complete development workflow with one command
+swarm orchestrate "Build a Todo app with add, delete, and complete features"
 
-# AI 自动拆分成 8-15 个任务，然后并行执行
+# AI automatically splits into 8-15 tasks, then executes in parallel
 swarm start --agents 8
 ```
 
-**核心理念**: 将传统的"人工拆分任务 → 分配开发"流程自动化，通过 AI 智能分析和多 Agent 并行执行，大幅提升开发效率。
+**Core Philosophy**: Automate the traditional "manual task splitting → developer assignment" workflow through AI intelligent analysis and multi-agent parallel execution, dramatically boosting development efficiency.
 
 ---
 
-## ✨ 核心特性
+## ✨ Features
 
-### 🧠 AI 主脑系统 (v2.0)
+### 🧠 AI Orchestrator (v2.0)
 
-**智能需求分析和任务拆分**
+**Intelligent Requirement Analysis and Task Decomposition**
 
-- **一句话生成任务队列** - 描述需求，AI 自动拆分成 8-15 个可执行任务
-- **模块化分解** - 智能识别独立功能模块（3-8 个）
-- **依赖关系管理** - 自动构建任务依赖图（DAG）
-- **精准任务描述** - 每个任务包含具体实现步骤和验收标准
+- **One-Sentence Task Queue Generation** - Describe requirements, AI auto-splits into 8-15 executable tasks
+- **Modular Decomposition** - Intelligently identifies independent functional modules (3-8 modules)
+- **Dependency Management** - Automatically builds task dependency graph (DAG)
+- **Precise Task Descriptions** - Each task includes specific implementation steps and acceptance criteria
 
 <details>
-<summary>查看 AI 分析示例</summary>
+<summary>View AI Analysis Example</summary>
 
 ```bash
-$ swarm orchestrate "实现用户认证系统"
+$ swarm orchestrate "Implement user authentication system"
 
-🧠 AI主脑分析中...
+🧠 AI Orchestrator analyzing...
 
 ════════════════════════════════════════════════════════════
-📊 AI 分析结果
+📊 AI Analysis Results
 ════════════════════════════════════════════════════════════
 
-📌 需求概要: 实现用户认证系统（注册、登录、JWT）
-🎯 复杂度: medium
-⏱️  预计时间: 8-12h
+📌 Summary: User authentication system (registration, login, JWT)
+🎯 Complexity: medium
+⏱️  Estimated Time: 8-12h
 
-🔧 模块拆分 (4个模块):
-  1. DatabaseSchema - 用户表设计
-  2. AuthAPI - 注册和登录 API
-  3. JWTService - Token 生成和验证
-  4. Testing - 单元测试和集成测试
+🔧 Module Breakdown (4 modules):
+  1. DatabaseSchema - User table design
+  2. AuthAPI - Registration and login API
+  3. JWTService - Token generation and validation
+  4. Testing - Unit and integration tests
 
-📋 任务列表 (10个任务):
-  🟢 Task-1: 创建 users 表结构...
-  🔵 Task-2: 实现 POST /api/register...
-  🔵 Task-3: 实现 POST /api/login...
+📋 Task List (10 tasks):
+  🟢 Task-1: Create users table schema...
+  🔵 Task-2: Implement POST /api/register...
+  🔵 Task-3: Implement POST /api/login...
   ...
 
-✅ 任务队列创建完成！共 10 个任务
+✅ Task queue created! Total: 10 tasks
 ```
 
 </details>
 
-### 🐝 蜂群协作系统 (v1.0)
+### 🐝 Swarm Collaboration (v1.0)
 
-**多 Agent 并行开发**
+**Multi-Agent Parallel Development**
 
-- **并行执行** - 同时运行 1-100 个 Claude Code 实例
-- **智能调度** - 自动分配任务给空闲 Agent
-- **状态监控** - 实时检测 Agent 状态（工作中/空闲/等待确认/错误）
-- **自动救援** - 智能处理确认提示、错误恢复、卡住检测
+- **Parallel Execution** - Run 1-100 Claude Code instances simultaneously
+- **Intelligent Scheduling** - Auto-assign tasks to idle agents
+- **Status Monitoring** - Real-time detection of agent states (working/idle/waiting/error)
+- **Auto Rescue** - Intelligent handling of confirmations, error recovery, stuck detection
 
-### 🎨 TUI 可视化监控
+### 🎨 TUI Visualization
 
-**实时监控面板**
+**Real-time Monitoring Dashboard**
 
-- **Agent 网格** - 直观显示所有 Agent 状态（最多 5x5 网格）
-- **任务列表** - 实时查看任务进度和状态
-- **日志查看器** - 查看选中 Agent 的实时输出
-- **键盘导航** - Tab 切换面板，j/k 上下导航，q 退出
+- **Agent Grid** - Visual display of all agent states (up to 5x5 grid)
+- **Task List** - Real-time view of task progress and status
+- **Log Viewer** - View selected agent's real-time output
+- **Keyboard Navigation** - Tab to switch panels, j/k to navigate, q to quit
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Claude Swarm Monitor                          工作:3 空闲:2 │
+│ Claude Swarm Monitor                       Working:3 Idle:2 │
 ├─────────────────────────────────────────────────────────────┤
 │  Agent Grid (3x3)         │  Agent-0 Logs                   │
-│  ┌─────┬─────┬─────┐     │  • 正在分析需求...              │
-│  │ 0 ⚡│ 1 ⚡│ 2 💤│     │  • 创建文件 auth.go             │
-│  │工作中│工作中│空闲 │     │  • 运行测试...                  │
+│  ┌─────┬─────┬─────┐     │  • Analyzing requirements...    │
+│  │ 0 ⚡│ 1 ⚡│ 2 💤│     │  • Creating file auth.go        │
+│  │Work │Work │Idle │     │  • Running tests...             │
 │  ├─────┼─────┼─────┤     │                                 │
 │  │ 3 ⚡│ 4 💤│     │     │                                 │
 │  └─────┴─────┴─────┘     │                                 │
 ├─────────────────────────────────────────────────────────────┤
 │  Task List                                                  │
-│  ✅ Task-1: 创建数据库表                                    │
-│  🔄 Task-2: 实现注册 API            [Agent-0]              │
-│  🔄 Task-3: 实现登录 API            [Agent-1]              │
-│  ⏳ Task-4: JWT Token 验证                                 │
+│  ✅ Task-1: Create database tables                          │
+│  🔄 Task-2: Implement registration API     [Agent-0]       │
+│  🔄 Task-3: Implement login API            [Agent-1]       │
+│  ⏳ Task-4: JWT Token validation                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 前置要求
+### Prerequisites
 
-| 依赖 | 版本 | 安装方法 |
-|------|------|---------|
+| Dependency | Version | Installation |
+|------------|---------|--------------|
 | **Go** | 1.21+ | [go.dev/doc/install](https://go.dev/doc/install) |
-| **tmux** | 最新 | `brew install tmux` (macOS)<br>`apt install tmux` (Ubuntu) |
-| **Claude Code** | 最新 | [claude.ai/claude-code](https://claude.ai/claude-code) |
-| **Gemini API Key** | - | [ai.google.dev](https://ai.google.dev/) (可选，用于 AI 主脑) |
+| **tmux** | Latest | `brew install tmux` (macOS)<br>`apt install tmux` (Ubuntu) |
+| **Claude Code** | Latest | [claude.ai/claude-code](https://claude.ai/claude-code) |
+| **Gemini API Key** | - | [ai.google.dev](https://ai.google.dev/) (Optional, for AI Orchestrator) |
 
-### 安装
+### Installation
 
 ```bash
-# 1. 克隆仓库
+# 1. Clone repository
 git clone https://github.com/Cz07cring/claude-swarm.git
 cd claude-swarm
 
-# 2. 构建
+# 2. Build
 go build -o swarm ./cmd/swarm
 
-# 3. (可选) 配置 Gemini API Key 用于 AI 主脑
+# 3. (Optional) Configure Gemini API Key for AI Orchestrator
 export GEMINI_API_KEY="your-api-key-here"
 echo 'export GEMINI_API_KEY="your-key"' >> ~/.bashrc
 ```
 
-### 3 步上手
+### 3 Steps to Get Started
 
 ```bash
-# 1. 启动 Agent 集群（5 个 Agent）
+# 1. Start agent cluster (5 agents)
 ./swarm start --agents 5
 
-# 2. 添加任务
-./swarm add-task "创建一个 HTTP 服务器"
-./swarm add-task "编写单元测试"
+# 2. Add tasks
+./swarm add-task "Create an HTTP server"
+./swarm add-task "Write unit tests"
 
-# 3. 监控进度
-./swarm monitor  # TUI 可视化监控（推荐）
-# 或
-./swarm status   # CLI 状态查询
+# 3. Monitor progress
+./swarm monitor  # TUI visual monitoring (recommended)
+# or
+./swarm status   # CLI status query
 ```
 
 ---
 
-## 📖 使用指南
+## 📖 Usage
 
-### 场景 1: AI 主脑自动拆分任务 (推荐 🧠)
+### Scenario 1: AI Orchestrator Auto-Split (Recommended 🧠)
 
-**适合**: 新功能开发、模块化重构、复杂需求
+**Best For**: New feature development, modular refactoring, complex requirements
 
 ```bash
-# 一句话描述需求
-./swarm orchestrate "实现实时聊天功能，支持文本、图片、在线状态"
+# Describe requirements in one sentence
+./swarm orchestrate "Implement real-time chat with text, images, and online status"
 
-# AI 自动生成 15 个任务，包含：
-# - WebSocket 模块
-# - 消息存储模块
-# - 文件上传模块
-# - 在线状态模块
-# - 前端组件
+# AI auto-generates 15 tasks including:
+# - WebSocket module
+# - Message storage module
+# - File upload module
+# - Online status module
+# - Frontend components
 
-# 启动 10 个 Agent 并行开发
+# Start 10 agents for parallel development
 ./swarm start --agents 10
 
-# TUI 实时监控
+# Real-time monitoring with TUI
 ./swarm monitor
 ```
 
-**时间节省**: 相比串行开发可节省 **60-80%** 时间
+**Time Saved**: **60-80%** compared to serial development
 
-### 场景 2: 手动添加任务
+### Scenario 2: Manual Task Addition
 
-**适合**: 已知任务列表、精确控制
+**Best For**: Known task list, precise control
 
 ```bash
-# 启动集群
+# Start cluster
 ./swarm start --agents 3
 
-# 批量添加任务
-./swarm add-task "实现用户注册 API"
-./swarm add-task "实现用户登录 API"
-./swarm add-task "实现密码重置 API"
-./swarm add-task "编写 API 文档"
+# Batch add tasks
+./swarm add-task "Implement user registration API"
+./swarm add-task "Implement user login API"
+./swarm add-task "Implement password reset API"
+./swarm add-task "Write API documentation"
 
-# 查看状态
+# Check status
 ./swarm status
 ```
 
-### 场景 3: 批量处理重复任务
+### Scenario 3: Batch Repetitive Tasks
 
 ```bash
-# 启动集群
+# Start cluster
 ./swarm start --agents 5
 
-# 批量添加任务（Shell 循环）
+# Batch add tasks (shell loop)
 for feature in login register profile settings dashboard
 do
-  ./swarm add-task "为 $feature 功能编写单元测试"
+  ./swarm add-task "Write unit tests for $feature feature"
 done
 
-# 实时监控
+# Real-time monitoring
 watch -n 2 './swarm status'
 ```
 
 ---
 
-## 📋 命令参考
+## 📋 Command Reference
 
-### 核心命令
+### Core Commands
 
-| 命令 | 说明 | 示例 |
-|------|------|------|
-| `orchestrate` | 🧠 AI 主脑分析需求 | `swarm orchestrate "需求描述"` |
-| `start` | 启动 Agent 集群 | `swarm start --agents 5` |
-| `add-task` | 添加任务到队列 | `swarm add-task "任务描述"` |
-| `monitor` | 🎨 TUI 可视化监控 | `swarm monitor` |
-| `status` | 查看集群状态 | `swarm status` |
-| `stop` | 停止集群 | `swarm stop` |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `orchestrate` | 🧠 AI requirement analysis | `swarm orchestrate "requirement description"` |
+| `start` | Start agent cluster | `swarm start --agents 5` |
+| `add-task` | Add task to queue | `swarm add-task "task description"` |
+| `monitor` | 🎨 TUI visual monitoring | `swarm monitor` |
+| `status` | View cluster status | `swarm status` |
+| `stop` | Stop cluster | `swarm stop` |
 
-### `orchestrate` - AI 主脑
+### `orchestrate` - AI Orchestrator
 
 ```bash
-swarm orchestrate [需求描述] [flags]
+swarm orchestrate [requirement description] [flags]
 
 Flags:
-  -k, --api-key string   Gemini API Key (或使用环境变量 GEMINI_API_KEY)
-      --auto-start       分析完成后自动启动 Agent 集群
-  -n, --agents int       Agent 数量（默认: 5）
+  -k, --api-key string   Gemini API Key (or use env var GEMINI_API_KEY)
+      --auto-start       Auto-start agent cluster after analysis
+  -n, --agents int       Number of agents (default: 5)
 
-示例:
-  # 基础使用
-  swarm orchestrate "实现博客系统"
+Examples:
+  # Basic usage
+  swarm orchestrate "Build a blog system"
 
-  # 分析后自动启动
-  swarm orchestrate --auto-start "优化数据库性能"
+  # Auto-start after analysis
+  swarm orchestrate --auto-start "Optimize database performance"
 
-  # 指定 API Key 和 Agent 数量
-  swarm orchestrate -k "your-key" -n 10 "重构认证系统"
+  # Specify API Key and agent count
+  swarm orchestrate -k "your-key" -n 10 "Refactor auth system"
 ```
 
-### `start` - 启动集群
+### `start` - Start Cluster
 
 ```bash
 swarm start [flags]
 
 Flags:
-  -n, --agents int      Agent 数量 (默认: 3)
-  -i, --interval int    监控间隔秒数 (默认: 5)
-  -s, --session string  tmux 会话名称 (默认: claude-swarm)
+  -n, --agents int      Number of agents (default: 3)
+  -i, --interval int    Monitoring interval in seconds (default: 5)
+  -s, --session string  tmux session name (default: claude-swarm)
 
-示例:
-  # 启动 5 个 Agent，监控间隔 3 秒
+Examples:
+  # Start 5 agents with 3-second monitoring interval
   swarm start -n 5 -i 3
 
-  # 自定义会话名称
+  # Custom session name
   swarm start -s dev-swarm
 ```
 
-### `monitor` - TUI 监控
+### `monitor` - TUI Monitor
 
 ```bash
 swarm monitor
 
-键盘快捷键:
-  Tab       切换面板（Agent 网格 ⇄ 任务列表）
-  j/k       上下导航
-  ↑/↓       上下导航
-  h/l       左右导航（Agent 网格）
-  ←/→       左右导航（Agent 网格）
-  Home      跳到第一个
-  End       跳到最后一个
-  Enter     选择 Agent 查看日志
-  q/Esc     退出
+Keyboard Shortcuts:
+  Tab       Switch panels (Agent Grid ⇄ Task List)
+  j/k       Navigate up/down
+  ↑/↓       Navigate up/down
+  h/l       Navigate left/right (Agent Grid)
+  ←/→       Navigate left/right (Agent Grid)
+  Home      Jump to first
+  End       Jump to last
+  Enter     Select agent to view logs
+  q/Esc     Quit
 ```
 
 ---
 
-## 🎨 TUI 监控面板
+## 🎨 TUI Monitor Panel
 
-### 功能特性
+### Features
 
-| 面板 | 功能 | 快捷键 |
-|------|------|--------|
-| **Agent 网格** | 显示所有 Agent 状态（工作中/空闲/错误）<br>动态网格大小（2x2 到 5x5）| h/j/k/l 导航<br>Enter 查看日志 |
-| **任务列表** | 实时显示任务状态和进度<br>颜色编码（绿色=完成，蓝色=进行中）| j/k 滚动 |
-| **日志查看器** | 显示选中 Agent 的实时输出<br>自动滚动到底部 | PageUp/Down 滚动 |
-| **状态栏** | 集群统计（工作/空闲 Agent 数，任务完成度）| - |
+| Panel | Functionality | Shortcuts |
+|-------|--------------|-----------|
+| **Agent Grid** | Display all agent states (working/idle/error)<br>Dynamic grid size (2x2 to 5x5) | h/j/k/l navigation<br>Enter to view logs |
+| **Task List** | Real-time task status and progress<br>Color-coded (green=done, blue=active) | j/k to scroll |
+| **Log Viewer** | Selected agent's real-time output<br>Auto-scroll to bottom | PageUp/Down to scroll |
+| **Status Bar** | Cluster stats (working/idle agent count, task completion) | - |
 
-### Agent 状态图标
+### Agent Status Icons
 
-| 图标 | 状态 | 说明 |
-|------|------|------|
-| ⚡ | 工作中 | Agent 正在执行任务 |
-| 💤 | 空闲 | Agent 等待分配任务 |
-| ⏸️ | 等待确认 | Agent 等待用户输入 |
-| ❌ | 错误 | Agent 遇到错误 |
-| ⏱️ | 卡住 | Agent 长时间无响应 |
+| Icon | State | Description |
+|------|-------|-------------|
+| ⚡ | Working | Agent executing task |
+| 💤 | Idle | Agent waiting for task |
+| ⏸️ | Waiting | Agent waiting for user input |
+| ❌ | Error | Agent encountered error |
+| ⏱️ | Stuck | Agent unresponsive |
 
-📖 **详细文档**: [TUI Monitor 使用指南](docs/tui/TUI_DEMO.md)
+📖 **Detailed Docs**: [TUI Monitor Guide](docs/tui/TUI_DEMO.md)
 
 ---
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 claude-swarm/
-├── cmd/swarm/              # 命令行入口
+├── cmd/swarm/              # CLI entry points
 │   ├── main.go
-│   ├── orchestrate.go      # AI 主脑命令
-│   ├── start.go            # 启动集群
-│   ├── monitor.go          # TUI 监控
+│   ├── orchestrate.go      # AI Orchestrator command
+│   ├── start.go            # Start cluster
+│   ├── monitor.go          # TUI monitor
 │   └── ...
 ├── pkg/
-│   ├── orchestrator/       # AI 主脑（Gemini）
-│   ├── controller/         # 协调器（调度、监控）
-│   ├── tui/                # TUI 界面组件
-│   ├── state/              # 任务队列管理
-│   └── tmux/               # tmux 会话管理
-├── docs/                   # 📚 文档
-│   ├── guides/             #   用户指南
-│   ├── reports/            #   测试报告
-│   └── tui/                #   TUI 文档
-├── scripts/                # 🔧 脚本工具
-│   ├── tests/              #   自动化测试
-│   └── tools/              #   开发工具
-└── config.yaml.example     # 配置示例
+│   ├── orchestrator/       # AI Orchestrator (Gemini)
+│   ├── controller/         # Coordinator (scheduling, monitoring)
+│   ├── tui/                # TUI components
+│   ├── state/              # Task queue management
+│   └── tmux/               # tmux session management
+├── docs/                   # 📚 Documentation
+│   ├── guides/             #   User guides
+│   ├── reports/            #   Test reports
+│   └── tui/                #   TUI docs
+├── scripts/                # 🔧 Scripts
+│   ├── tests/              #   Automated tests
+│   └── tools/              #   Dev tools
+└── config.yaml.example     # Config template
 ```
 
-📖 **详细说明**: [DIRECTORY_STRUCTURE.md](DIRECTORY_STRUCTURE.md)
+📖 **Detailed Structure**: [DIRECTORY_STRUCTURE.md](DIRECTORY_STRUCTURE.md)
 
 ---
 
-## 🏗️ 架构概览
+## 🏗️ Architecture
 
-### 工作流程
+### Workflow
 
 ```
 ┌─────────────────┐
-│  用户输入需求    │
+│  User Input     │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐     ┌──────────────────┐
-│  AI 主脑 (Gemini)│────▶│  任务队列 (JSON)  │
-│  - 需求分析      │     │  - pending       │
-│  - 模块拆分      │     │  - in_progress   │
-│  - 任务生成      │     │  - completed     │
-│  - 依赖识别      │     └────────┬─────────┘
+│ AI Orchestrator │────▶│  Task Queue      │
+│  - Analysis     │     │  - pending       │
+│  - Modularize   │     │  - in_progress   │
+│  - Generate     │     │  - completed     │
+│  - Dependencies │     └────────┬─────────┘
 └─────────────────┘              │
                                  ▼
                         ┌─────────────────┐
-                        │   调度器         │
-                        │  - 任务分配      │
-                        │  - 负载均衡      │
+                        │   Scheduler     │
+                        │  - Assign tasks │
+                        │  - Load balance │
                         └────────┬─────────┘
                                  │
                 ┌────────────────┼────────────────┐
@@ -375,260 +377,250 @@ claude-swarm/
                 ▼                ▼                ▼
          ┌──────────┐     ┌──────────┐    ┌──────────┐
          │ Agent 0  │     │ Agent 1  │... │ Agent N  │
-         │ (tmux 窗格)│     │ (tmux 窗格)│    │ (tmux 窗格)│
+         │(tmux pane)│     │(tmux pane)│    │(tmux pane)│
          └────┬─────┘     └────┬─────┘    └────┬─────┘
               │                │               │
               └────────────────┼───────────────┘
                                │
                                ▼
                         ┌─────────────────┐
-                        │  监控器          │
-                        │  - 状态检测      │
-                        │  - 自动确认      │
-                        │  - 错误恢复      │
-                        │  - 卡住检测      │
+                        │    Monitor      │
+                        │  - Detect state │
+                        │  - Auto-confirm │
+                        │  - Error recover│
+                        │  - Stuck detect │
                         └────────┬─────────┘
                                  │
                                  ▼
                         ┌─────────────────┐
-                        │  TUI 面板        │
-                        │  - 实时可视化    │
+                        │   TUI Panel     │
+                        │  - Realtime viz │
                         └─────────────────┘
 ```
 
-### 核心组件
+### Core Components
 
-| 组件 | 功能 | 技术栈 |
-|------|------|--------|
-| **AI Orchestrator** | 需求分析、任务拆分、依赖管理 | Gemini 3 Flash Preview |
-| **Task Queue** | 任务存储和状态管理 | JSON 文件 + 文件锁 |
-| **Coordinator** | 任务调度、Agent 监控、自动救援 | Go Goroutines |
-| **tmux Manager** | 会话管理、窗格控制、输出捕获 | tmux API |
-| **TUI Dashboard** | 实时可视化监控 | Bubble Tea + Lipgloss |
+| Component | Functionality | Tech Stack |
+|-----------|---------------|------------|
+| **AI Orchestrator** | Requirement analysis, task splitting, dependency mgmt | Gemini 3 Flash Preview |
+| **Task Queue** | Task storage and state management | JSON files + file locks |
+| **Coordinator** | Task scheduling, agent monitoring, auto-rescue | Go Goroutines |
+| **tmux Manager** | Session management, pane control, output capture | tmux API |
+| **TUI Dashboard** | Real-time visual monitoring | Bubble Tea + Lipgloss |
 
 ---
 
-## 🛠️ 开发
+## 🛠️ Development
 
-### 构建
+### Build
 
 ```bash
-# 开发模式运行
+# Development mode
 go run ./cmd/swarm start
 
-# 构建二进制
+# Build binary
 go build -o swarm ./cmd/swarm
 
-# 跨平台构建
+# Cross-platform build
 GOOS=linux GOARCH=amd64 go build -o swarm-linux ./cmd/swarm
 GOOS=darwin GOARCH=arm64 go build -o swarm-darwin ./cmd/swarm
 ```
 
-### 测试
+### Testing
 
 ```bash
-# 运行所有测试
+# Run all tests
 go test ./...
 
-# 测试覆盖率
+# Test coverage
 go test -cover ./...
 
-# 运行集成测试
+# Integration tests
 ./scripts/tests/run-full-test.sh
 
-# TUI 测试
+# TUI tests
 ./scripts/tests/test-tui.sh
 ```
 
-### 目录整理
+---
 
-```bash
-# 重新组织项目目录
-./organize-repo.sh
+## 📚 Documentation
 
-# 清理临时文件
-rm -rf .archive/*
-```
+### User Guides
+
+- [User Guide](docs/guides/USER_GUIDE.md) - Complete tutorial
+- [Configuration Guide](docs/guides/CONFIG_GUIDE.md) - Config details
+- [Getting Started](docs/guides/GETTING_STARTED.md) - Beginner's guide
+
+### TUI Related
+
+- [TUI Demo](docs/tui/TUI_DEMO.md) - Monitor panel usage
+- [TUI Optimization](docs/tui/TUI_OPTIMIZATION_SUMMARY.md) - Features
+- [TUI UX Improvements](docs/tui/TUI_UX_IMPROVEMENTS.md) - UX enhancements
+
+### Development Docs
+
+- [Architecture Design](docs/architecture/full-plan.md) - Complete implementation plan
+- [Gemini Setup](docs/GEMINI_SETUP.md) - API configuration guide
+- [Test Reports](docs/reports/) - Various test reports
 
 ---
 
-## 📚 文档
+## 🗺️ Roadmap
 
-### 用户指南
+### ✅ Completed
 
-- [用户使用指南](docs/guides/USER_GUIDE.md) - 完整使用教程
-- [配置指南](docs/guides/CONFIG_GUIDE.md) - 配置详解
-- [快速开始](docs/guides/GETTING_STARTED.md) - 新手入门
+- **v1.0 MVP** - Basic swarm system
+  - tmux session management
+  - Task queue and scheduling
+  - Status monitoring and auto-rescue
+  - CLI commands
 
-### TUI 相关
+- **v2.0 AI Orchestrator**
+  - Gemini intelligent requirement analysis
+  - Auto task splitting
+  - Dependency identification
+  - TUI visual monitoring
 
-- [TUI 使用演示](docs/tui/TUI_DEMO.md) - 监控面板使用
-- [TUI 优化总结](docs/tui/TUI_OPTIMIZATION_SUMMARY.md) - 功能特性
-- [TUI UX 改进](docs/tui/TUI_UX_IMPROVEMENTS.md) - 用户体验优化
+### 🚧 In Progress
 
-### 开发文档
-
-- [架构设计](docs/architecture/full-plan.md) - 完整实施计划
-- [Gemini 配置](docs/GEMINI_SETUP.md) - API 配置指南
-- [测试报告](docs/reports/) - 各类测试报告
-
----
-
-## 🗺️ 路线图
-
-### ✅ 已完成
-
-- **v1.0 MVP** - 基础蜂群系统
-  - tmux 会话管理
-  - 任务队列和调度
-  - 状态监控和自动救援
-  - CLI 命令
-
-- **v2.0 AI 主脑**
-  - Gemini 智能需求分析
-  - 自动任务拆分
-  - 依赖关系识别
-  - TUI 可视化监控
-
-### 🚧 进行中
-
-- **v2.1 增强调度**
-  - DAG 依赖调度
-  - 文件冲突避免
-  - 任务超时和重试
+- **v2.1 Enhanced Scheduling**
+  - DAG dependency scheduling
+  - File conflict avoidance
+  - Task timeout and retry
 
 - **v2.2 Git Worktree**
-  - Agent 独立分支开发
-  - 自动合并和冲突解决
+  - Agent independent branch development
+  - Auto merge and conflict resolution
 
-### ⏳ 计划中
+### ⏳ Planned
 
-- **v3.0 持久化**
-  - SQLite 数据库（替代 JSON）
-  - 任务历史和统计
+- **v3.0 Persistence**
+  - SQLite database (replace JSON)
+  - Task history and statistics
 
-- **v3.1 跨平台**
-  - Windows 支持
-  - Docker 镜像
+- **v3.1 Cross-platform**
+  - Windows support
+  - Docker images
 
-- **v4.0 Web 界面**
-  - Web 仪表板
-  - 远程控制和协作
+- **v4.0 Web Interface**
+  - Web dashboard
+  - Remote control and collaboration
 
 ---
 
-## 💡 常见问题
+## 💡 FAQ
 
 <details>
-<summary><b>Q: tmux 会话创建失败怎么办？</b></summary>
+<summary><b>Q: tmux session creation failed?</b></summary>
 
 ```bash
-# 检查 tmux 是否安装
+# Check if tmux is installed
 which tmux
 
-# 查看现有会话
+# View existing sessions
 tmux ls
 
-# 手动终止旧会话
+# Manually kill old session
 tmux kill-session -t claude-swarm
 ```
 </details>
 
 <details>
-<summary><b>Q: 任务队列损坏怎么办？</b></summary>
+<summary><b>Q: Task queue corrupted?</b></summary>
 
 ```bash
-# 备份任务队列
+# Backup task queue
 cp ~/.claude-swarm/tasks.json ~/.claude-swarm/tasks.json.bak
 
-# 删除损坏的队列
+# Remove corrupted queue
 rm ~/.claude-swarm/tasks.json
 
-# 重新启动
+# Restart
 ./swarm start
 ```
 </details>
 
 <details>
-<summary><b>Q: Agent 没有响应怎么办？</b></summary>
+<summary><b>Q: Agent not responding?</b></summary>
 
 ```bash
-# 附加到 tmux 查看实时输出
+# Attach to tmux to view real-time output
 tmux attach -t claude-swarm
 
-# 在 TUI 监控中查看 Agent 日志
+# View agent logs in TUI monitor
 ./swarm monitor
 
-# 重启集群
+# Restart cluster
 ./swarm stop
 ./swarm start
 ```
 </details>
 
 <details>
-<summary><b>Q: Gemini API 配额不够怎么办？</b></summary>
+<summary><b>Q: Gemini API quota exceeded?</b></summary>
 
-Gemini 3 Flash Preview 免费配额：
-- 60 次/分钟
-- 1500 次/天
+Gemini 3 Flash Preview free quota:
+- 60 requests/minute
+- 1500 requests/day
 
-如果超出配额，可以：
-1. 升级到付费 API
-2. 使用手动模式（`add-task`）
-3. 减少使用频率
+If quota exceeded:
+1. Upgrade to paid API
+2. Use manual mode (`add-task`)
+3. Reduce usage frequency
 </details>
 
 ---
 
-## 📊 性能对比
+## 📊 Performance Comparison
 
-| 场景 | 传统开发 | Claude Swarm | 时间节省 |
-|------|---------|-------------|---------|
-| **10 个独立模块** | 串行开发 20h | 5 Agent 并行 6h | **70%** ⬇️ |
-| **任务拆分** | 人工 2-3h | AI 15s | **99%** ⬇️ |
-| **100 个单元测试** | 串行编写 10h | 10 Agent 并行 2h | **80%** ⬇️ |
-
----
-
-## 🤝 贡献
-
-欢迎贡献！请遵循以下步骤：
-
-1. Fork 本仓库
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+| Scenario | Traditional Dev | Claude Swarm | Time Saved |
+|----------|----------------|--------------|------------|
+| **10 independent modules** | Serial 20h | 5 agents parallel 6h | **70%** ⬇️ |
+| **Task splitting** | Manual 2-3h | AI 15s | **99%** ⬇️ |
+| **100 unit tests** | Serial 10h | 10 agents parallel 2h | **80%** ⬇️ |
 
 ---
 
-## 📄 许可证
+## 🤝 Contributing
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+Contributions welcome! Please follow these steps:
+
+1. Fork this repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Create Pull Request
 
 ---
 
-## 📧 联系方式
+## 📄 License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details
+
+---
+
+## 📧 Contact
 
 - **GitHub**: [@Cz07cring](https://github.com/Cz07cring)
-- **Issues**: [提交问题](https://github.com/Cz07cring/claude-swarm/issues)
-- **Discussions**: [参与讨论](https://github.com/Cz07cring/claude-swarm/discussions)
+- **Issues**: [Submit Issue](https://github.com/Cz07cring/claude-swarm/issues)
+- **Discussions**: [Join Discussion](https://github.com/Cz07cring/claude-swarm/discussions)
 
 ---
 
-## 🙏 致谢
+## 🙏 Acknowledgments
 
-- [tmux](https://github.com/tmux/tmux) - 终端复用器
-- [Claude Code](https://claude.ai/claude-code) - AI 编程助手
-- [Google Gemini](https://ai.google.dev/) - AI 主脑
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI 框架
-- [AI蜂群协作-tmux多Agent协作系统](https://github.com/tukuaiai/vibe-coding-cn) - 灵感来源
+- [tmux](https://github.com/tmux/tmux) - Terminal multiplexer
+- [Claude Code](https://claude.ai/claude-code) - AI coding assistant
+- [Google Gemini](https://ai.google.dev/) - AI Orchestrator
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
+- [AI Swarm Collaboration](https://github.com/tukuaiai/vibe-coding-cn) - Inspiration
 
 ---
 
 <div align="center">
 
-**⚠️ 注意**: 这是一个实验性项目，请在生产环境使用前充分测试。
+**⚠️ Notice**: This is an experimental project. Please test thoroughly before production use.
 
 Made with ❤️ by Claude Sonnet 4.5
 
