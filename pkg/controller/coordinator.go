@@ -214,7 +214,21 @@ func (c *Coordinator) Start() {
 func (c *Coordinator) Stop() error {
 	log.Println("Stopping coordinator...")
 	c.cancel()
-	c.wg.Wait()
+
+	// 🔧 FIX: 使用带超时的等待，避免无限阻塞
+	done := make(chan struct{})
+	go func() {
+		c.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Println("✓ All goroutines stopped gracefully")
+	case <-time.After(30 * time.Second):
+		log.Println("⚠️  Timeout waiting for goroutines to stop (30s), forcing shutdown")
+		// 继续执行清理，即使 goroutine 可能还在运行
+	}
 
 	// Save final agent state
 	if c.agentStateMgr != nil {

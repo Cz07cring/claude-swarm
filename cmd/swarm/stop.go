@@ -223,60 +223,95 @@ func cleanupWorktrees() {
 
 // killOrphanedProcesses 清理遗留的 swarm 进程
 func killOrphanedProcesses() {
-	// 查找所有 swarm 进程
+	currentPID := os.Getpid()
+	var pidsToKill []int
+
+	// 🔧 FIX: 优先使用 PID 文件进行精确清理
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		swarmDir := filepath.Join(homeDir, ".claude-swarm")
+		// 查找所有 PID 文件
+		if entries, err := os.ReadDir(swarmDir); err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".pid") {
+					pidFile := filepath.Join(swarmDir, entry.Name())
+					if data, err := os.ReadFile(pidFile); err == nil {
+						if pid, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil {
+							// 验证进程是否真的存在
+							checkCmd := exec.Command("kill", "-0", strconv.Itoa(pid))
+							if checkCmd.Run() == nil {
+								// 进程存在
+								if pid != currentPID {
+									pidsToKill = append(pidsToKill, pid)
+								}
+							} else {
+								// 进程不存在，删除过期的 PID 文件
+								os.Remove(pidFile)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 兜底策略：使用 pgrep 查找所有 swarm 进程
 	cmd := exec.Command("pgrep", "-f", "swarm start")
 	output, err := cmd.Output()
-	if err != nil {
-		// 没有找到进程，这是好事
+	if err == nil {
+		pids := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, pidStr := range pids {
+			if pidStr == "" {
+				continue
+			}
+			pid, err := strconv.Atoi(pidStr)
+			if err != nil {
+				continue
+			}
+			// 跳过当前进程
+			if pid == currentPID {
+				continue
+			}
+			// 添加到列表（去重）
+			found := false
+			for _, existingPID := range pidsToKill {
+				if existingPID == pid {
+					found = true
+					break
+				}
+			}
+			if !found {
+				pidsToKill = append(pidsToKill, pid)
+			}
+		}
+	}
+
+	// 没有需要清理的进程
+	if len(pidsToKill) == 0 {
 		return
 	}
 
-	pids := strings.Split(strings.TrimSpace(string(output)), "\n")
-	if len(pids) == 0 || (len(pids) == 1 && pids[0] == "") {
-		return
-	}
+	fmt.Printf("🧹 发现 %d 个遗留进程，正在清理...\n", len(pidsToKill))
 
-	currentPID := os.Getpid()
-	hasOrphans := false
-
-	for _, pidStr := range pids {
-		if pidStr == "" {
-			continue
-		}
-
-		pid, err := strconv.Atoi(pidStr)
-		if err != nil {
-			continue
-		}
-
-		// 跳过当前进程
-		if pid == currentPID {
-			continue
-		}
-
-		if !hasOrphans {
-			fmt.Println("🧹 发现遗留进程，正在清理...")
-			hasOrphans = true
-		}
-
+	for _, pid := range pidsToKill {
 		fmt.Printf("   终止进程: PID %d\n", pid)
 
 		// Step 1: 尝试优雅终止 (SIGTERM)
-		killCmd := exec.Command("kill", "-TERM", pidStr)
+		killCmd := exec.Command("kill", "-TERM", strconv.Itoa(pid))
 		if err := killCmd.Run(); err == nil {
-			// Step 2: 等待进程退出（5 秒）
-			time.Sleep(5 * time.Second)
+			// Step 2: 等待进程退出（2 秒）
+			time.Sleep(2 * time.Second)
 
 			// Step 3: 检查进程是否还存在
-			checkCmd := exec.Command("kill", "-0", pidStr)
+			checkCmd := exec.Command("kill", "-0", strconv.Itoa(pid))
 			if checkCmd.Run() != nil {
 				// 进程已优雅退出
 				fmt.Printf("   ✓ 进程 %d 已优雅退出\n", pid)
 				continue
 			}
 
-			// Step 4: 再等待 5 秒
-			time.Sleep(5 * time.Second)
+			// Step 4: 再等待 3 秒
+			time.Sleep(3 * time.Second)
 
 			// Step 5: 再次检查
 			if checkCmd.Run() != nil {
@@ -285,9 +320,9 @@ func killOrphanedProcesses() {
 			}
 		}
 
-		// Step 6: 强制终止 (SIGKILL) - 总共等待了 10 秒
+		// Step 6: 强制终止 (SIGKILL) - 总共等待了 5 秒
 		fmt.Printf("   ⚠️  强制终止进程 %d (SIGKILL)\n", pid)
-		killCmd = exec.Command("kill", "-9", pidStr)
+		killCmd = exec.Command("kill", "-9", strconv.Itoa(pid))
 		if err := killCmd.Run(); err != nil {
 			fmt.Printf("   ❌ 无法终止进程 %d: %v\n", pid, err)
 		} else {
@@ -295,8 +330,24 @@ func killOrphanedProcesses() {
 		}
 	}
 
-	if hasOrphans {
-		fmt.Println("✓ 遗留进程清理完成")
+	fmt.Println("✓ 遗留进程清理完成")
+
+	// 🔧 FIX: 验证清理是否完成
+	time.Sleep(1 * time.Second)
+	stillRunning := 0
+	for _, pid := range pidsToKill {
+		checkCmd := exec.Command("kill", "-0", strconv.Itoa(pid))
+		if checkCmd.Run() == nil {
+			// 进程仍在运行
+			stillRunning++
+			fmt.Printf("⚠️  警告: 进程 %d 仍在运行\n", pid)
+		}
+	}
+
+	if stillRunning > 0 {
+		fmt.Printf("⚠️  清理不完整: %d 个进程仍在运行\n", stillRunning)
+	} else {
+		fmt.Println("✓ 所有进程已成功清理")
 	}
 }
 
