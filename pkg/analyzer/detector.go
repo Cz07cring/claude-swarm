@@ -33,10 +33,23 @@ type ErrorDetails struct {
 	Context string
 }
 
+// ConfirmStats tracks confirmation statistics
+// 🔧 P1 FIX: 添加确认统计（用于监控和审计）
+type ConfirmStats struct {
+	TotalRequests   int
+	AutoConfirmed   int
+	ManualRequired  int
+	Blocked         int
+	TimeoutCount    int
+	LastConfirmTime time.Time
+}
+
 // Detector analyzes Claude output and detects state
 type Detector struct {
-	contextWindow []string
-	lastOutput    time.Time
+	contextWindow       []string
+	lastOutput          time.Time
+	waitingConfirmSince time.Time     // 🔧 P1 FIX: 追踪进入确认等待状态的时间
+	confirmStats        ConfirmStats  // 🔧 P1 FIX: 确认统计信息
 }
 
 // NewDetector creates a new detector
@@ -79,8 +92,15 @@ func (d *Detector) Analyze(output string) models.AgentState {
 
 	// Check patterns in order of priority
 	if PatternWaitingConfirm.MatchString(recent) {
+		// 🔧 P1 FIX: 追踪确认等待开始时间
+		if d.waitingConfirmSince.IsZero() {
+			d.waitingConfirmSince = time.Now()
+		}
 		return models.AgentStateWaitingConfirm
 	}
+
+	// 🔧 P1 FIX: 非确认状态，重置等待时间
+	d.waitingConfirmSince = time.Time{}
 
 	if PatternError.MatchString(recent) {
 		return models.AgentStateError
@@ -182,6 +202,37 @@ func (d *Detector) GetRecentOutput(n int) string {
 func (d *Detector) Reset() {
 	d.contextWindow = make([]string, 0, ContextWindowSize)
 	d.lastOutput = time.Now()
+	d.waitingConfirmSince = time.Time{} // 🔧 P1 FIX: 重置确认等待时间
+}
+
+// IsConfirmTimeout checks if confirmation has been waiting too long
+// 🔧 P1 FIX: 添加确认超时检测（5分钟）
+func (d *Detector) IsConfirmTimeout() bool {
+	if d.waitingConfirmSince.IsZero() {
+		return false
+	}
+	return time.Since(d.waitingConfirmSince) > 5*time.Minute
+}
+
+// GetConfirmWaitDuration returns how long we've been waiting for confirmation
+// 🔧 P1 FIX: 获取确认等待时长（用于日志和监控）
+func (d *Detector) GetConfirmWaitDuration() time.Duration {
+	if d.waitingConfirmSince.IsZero() {
+		return 0
+	}
+	return time.Since(d.waitingConfirmSince)
+}
+
+// GetConfirmStats returns confirmation statistics
+// 🔧 P1 FIX: 获取确认统计信息（用于监控和报告）
+func (d *Detector) GetConfirmStats() ConfirmStats {
+	return d.confirmStats
+}
+
+// ResetConfirmStats resets confirmation statistics
+// 🔧 P1 FIX: 重置统计信息（用于测试或周期性重置）
+func (d *Detector) ResetConfirmStats() {
+	d.confirmStats = ConfirmStats{}
 }
 
 // AnalyzeError analyzes the output to determine error type and details
