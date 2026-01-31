@@ -10,14 +10,16 @@ import (
 	"time"
 
 	"github.com/yourusername/claude-swarm/internal/models"
+	"github.com/yourusername/claude-swarm/pkg/scheduler"
 )
 
 // TaskQueue manages tasks using a JSON file
 type TaskQueue struct {
-	filePath string
-	mu       sync.Mutex      // In-process synchronization
-	lockFile *os.File        // Cross-process file lock
-	tasks    map[string]*models.Task
+	filePath  string
+	mu        sync.Mutex              // In-process synchronization
+	lockFile  *os.File                // Cross-process file lock
+	tasks     map[string]*models.Task
+	scheduler *scheduler.DAGScheduler // DAG scheduler for dependency management
 }
 
 type taskFile struct {
@@ -60,9 +62,10 @@ func NewTaskQueue(filePath string) (*TaskQueue, error) {
 	}
 
 	tq := &TaskQueue{
-		filePath: filePath,
-		lockFile: lockFile,
-		tasks:    make(map[string]*models.Task),
+		filePath:  filePath,
+		lockFile:  lockFile,
+		tasks:     make(map[string]*models.Task),
+		scheduler: scheduler.NewDAGScheduler(),
 	}
 
 	// Load existing tasks
@@ -112,11 +115,22 @@ func (tq *TaskQueue) AddTask(task *models.Task) error {
 		task.Status = models.TaskStatusPending
 	}
 
+	// Set default max retries if not specified
+	if task.MaxRetries == 0 {
+		task.MaxRetries = 3
+	}
+
 	tq.tasks[task.ID] = task
+
+	// Add to DAG scheduler
+	if err := tq.scheduler.AddTask(task); err != nil {
+		return fmt.Errorf("failed to add task to scheduler: %w", err)
+	}
+
 	return tq.save()
 }
 
-// ClaimTask claims a pending task for an agent (FIFO)
+// ClaimTask claims a pending task for an agent using DAG scheduling
 func (tq *TaskQueue) ClaimTask(agentID string) (*models.Task, error) {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
@@ -127,30 +141,29 @@ func (tq *TaskQueue) ClaimTask(agentID string) (*models.Task, error) {
 		// This allows the system to work even if file is temporarily unavailable
 	}
 
-	// Find the oldest pending task
-	var oldestTask *models.Task
-	for _, task := range tq.tasks {
-		if task.Status == models.TaskStatusPending {
-			if oldestTask == nil || task.CreatedAt.Before(oldestTask.CreatedAt) {
-				oldestTask = task
-			}
-		}
+	// Get ready tasks from DAG scheduler (already sorted by priority)
+	readyTasks := tq.scheduler.GetReadyTasks()
+
+	if len(readyTasks) == 0 {
+		return nil, nil // No ready tasks
 	}
 
-	if oldestTask == nil {
-		return nil, nil // No pending tasks
-	}
+	// Select the first ready task (highest priority)
+	selectedTask := readyTasks[0]
 
 	// Claim the task
-	oldestTask.Status = models.TaskStatusInProgress
-	oldestTask.AssigneeID = agentID
-	oldestTask.UpdatedAt = time.Now()
+	selectedTask.Status = models.TaskStatusInProgress
+	selectedTask.AssigneeID = agentID
+	selectedTask.UpdatedAt = time.Now()
+
+	// Update in scheduler
+	tq.scheduler.UpdateTask(selectedTask)
 
 	if err := tq.save(); err != nil {
 		return nil, err
 	}
 
-	return oldestTask, nil
+	return selectedTask, nil
 }
 
 // UpdateTaskStatus updates the status of a task
@@ -195,6 +208,30 @@ func (tq *TaskQueue) ListTasks() []*models.Task {
 	return tasks
 }
 
+// GetReadyTasks returns all tasks that are ready to execute
+func (tq *TaskQueue) GetReadyTasks() []*models.Task {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	return tq.scheduler.GetReadyTasks()
+}
+
+// GetBlockedTasks returns tasks that are blocked by dependencies
+func (tq *TaskQueue) GetBlockedTasks() []*models.Task {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	return tq.scheduler.GetBlockedTasks()
+}
+
+// GetDependentTasks returns all tasks that depend on the given task
+func (tq *TaskQueue) GetDependentTasks(taskID string) []*models.Task {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	return tq.scheduler.GetDependentTasks(taskID)
+}
+
 // load loads tasks from the JSON file
 func (tq *TaskQueue) load() error {
 	// Acquire shared lock for reading (multiple readers allowed)
@@ -214,8 +251,14 @@ func (tq *TaskQueue) load() error {
 	}
 
 	tq.tasks = make(map[string]*models.Task)
+
+	// Recreate scheduler with loaded tasks
+	tq.scheduler = scheduler.NewDAGScheduler()
+
 	for _, task := range tf.Tasks {
 		tq.tasks[task.ID] = task
+		// Add task to scheduler (ignore errors for now as tasks may already exist)
+		_ = tq.scheduler.AddTask(task)
 	}
 
 	return nil

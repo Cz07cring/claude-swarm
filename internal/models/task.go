@@ -20,6 +20,13 @@ type Task struct {
 	AssigneeID  string     `json:"assignee_id,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+
+	// DAG scheduling support
+	Dependencies []string `json:"dependencies,omitempty"` // IDs of tasks that must complete before this task
+	Priority     int      `json:"priority"`               // Priority 1-10 (higher = more important)
+	RetryCount   int      `json:"retry_count"`            // Number of times this task has been retried
+	MaxRetries   int      `json:"max_retries"`            // Maximum number of retries allowed
+	LastError    string   `json:"last_error,omitempty"`   // Last error message if task failed
 }
 
 // AgentState represents the state of an agent
