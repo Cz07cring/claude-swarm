@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -26,6 +28,32 @@ func init() {
 }
 
 func runAddTask(description string) {
+	// 🔧 FIX: 验证任务描述
+	description = strings.TrimSpace(description)
+
+	if description == "" {
+		fmt.Println("❌ 任务描述不能为空")
+		os.Exit(1)
+	}
+
+	if len(description) < 5 {
+		fmt.Printf("⚠️  任务描述过短 (%d 字符)，建议提供更详细的描述\n", len(description))
+	}
+
+	if len(description) > 10000 {
+		fmt.Printf("⚠️  任务描述过长 (%d 字符)，建议不超过 10000 字符\n", len(description))
+		fmt.Print("是否继续? (y/N): ")
+
+		reader := bufio.NewReader(os.Stdin)
+		response, _ := reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+
+		if response != "y" && response != "yes" {
+			fmt.Println("已取消")
+			os.Exit(0)
+		}
+	}
+
 	queuePath := taskQueuePath
 	if queuePath == "" {
 		queuePath = "~/.claude-swarm/tasks.json"

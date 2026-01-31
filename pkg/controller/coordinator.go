@@ -403,6 +403,15 @@ func (c *Coordinator) runScheduler() {
 				agent.mu.Lock()
 				state := agent.Status.State
 				hasTask := agent.Status.CurrentTask != nil
+
+				// 🔧 FIX: 检测并修复状态不一致
+				// 如果 Agent 状态不是 idle/waiting_confirm，但没有任务，说明状态不一致
+				if !hasTask && state != models.AgentStateIdle && state != models.AgentStateWaitingConfirm {
+					log.Printf("⚠️  %s 状态不一致：state=%s but hasTask=false，重置为 idle", agent.ID, state)
+					agent.Status.State = models.AgentStateIdle
+					state = models.AgentStateIdle
+				}
+
 				isIdle := state == models.AgentStateIdle && !hasTask
 				agent.mu.Unlock()
 

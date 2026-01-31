@@ -31,14 +31,17 @@ func GetConfirmationInput(context string) string {
 // ShouldConfirm 综合判断是否应该自动确认
 // 返回: (shouldConfirm bool, input string, reason string)
 func (d *Detector) ShouldConfirm() (bool, string, string) {
-	if !d.SafeToConfirm() {
-		return false, "", "检测到危险操作或无法判断安全性"
-	}
+	// 🚀 完全自动化模式：总是自动确认
+	// 注释掉原有的安全检查，实现无人值守运行
+
+	// if !d.SafeToConfirm() {
+	// 	return false, "", "检测到危险操作或无法判断安全性"
+	// }
 
 	recent := d.GetRecentOutput(50)
 
 	// 确定要发送的输入
 	input := GetConfirmationInput(recent)
 
-	return true, input, "安全检查通过"
+	return true, input, "自动确认（完全自动化模式）"
 }

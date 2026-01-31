@@ -250,7 +250,27 @@ Attach to session: tmux attach -t claude-swarm
   状态: pending
 ```
 
-#### 3. 查看状态
+#### 3. 监控集群 🎨
+
+**方式一：TUI 可视化监控面板（推荐！新增）**
+
+```bash
+# 在新终端启动交互式监控面板
+./swarm monitor
+```
+
+TUI Monitor 提供实时可视化界面：
+- 📋 **任务列表** - 实时显示所有任务状态，颜色编码
+- 👥 **Agent 网格** - 3x3 网格显示 Agent 状态
+- 📝 **日志查看器** - 实时显示选中 Agent 的输出
+- ⌨️ **键盘导航** - Tab 切换面板，j/k 导航，q 退出
+- 🔄 **自动刷新** - 每 2 秒更新状态
+
+![TUI Monitor Demo](docs/images/tui-demo.png)
+
+详见：[TUI Monitor 完整文档](docs/TUI_MONITOR.md)
+
+**方式二：CLI 状态查询（传统）**
 
 ```bash
 ./swarm status
@@ -281,6 +301,7 @@ Attach to session: tmux attach -t claude-swarm
 ============================================================
 
 💡 提示:
+  - 查看可视化监控: swarm monitor
   - 查看实时输出: tmux attach -t claude-swarm
   - 添加任务: swarm add-task "任务描述"
   - 停止集群: swarm stop
