@@ -77,37 +77,52 @@ var (
 		Foreground(colorPrimary).
 		MarginBottom(1)
 
-	// Status indicator styles
+	// Status indicator styles define the appearance of status icons and text
+
+	// statusIdleStyle is used for idle/pending states (gray)
+	// Applied to: ○ icon for pending tasks, idle agent states
 	statusIdleStyle = lipgloss.NewStyle().
-			Foreground(colorIdle).
-			Bold(true)
+		Foreground(colorIdle).
+		Bold(true)
 
+	// statusWorkingStyle is used for active/working states (blue)
+	// Applied to: ● icon for in-progress tasks, working agent states
 	statusWorkingStyle = lipgloss.NewStyle().
-				Foreground(colorWorking).
-				Bold(true)
+		Foreground(colorWorking).
+		Bold(true)
 
+	// statusWaitingStyle is used for waiting/warning states (yellow)
+	// Applied to: ? icon for agents waiting for user confirmation
 	statusWaitingStyle = lipgloss.NewStyle().
-				Foreground(colorWarning).
-				Bold(true)
+		Foreground(colorWarning).
+		Bold(true)
 
+	// statusErrorStyle is used for error/failed states (red)
+	// Applied to: ✗ icon for failed tasks, error/stuck agent states
 	statusErrorStyle = lipgloss.NewStyle().
-				Foreground(colorError).
-				Bold(true)
+		Foreground(colorError).
+		Bold(true)
 
+	// statusSuccessStyle is used for completed/success states (green)
+	// Applied to: ✓ icon for completed tasks
 	statusSuccessStyle = lipgloss.NewStyle().
-				Foreground(colorSuccess).
-				Bold(true)
+		Foreground(colorSuccess).
+		Bold(true)
 
-	// Task list styles
+	// Task list styles define the appearance of task items in the left panel
+
+	// taskItemStyle is the default style for unselected task items
 	taskItemStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0)
+		PaddingLeft(2).
+		MarginBottom(0)
 
+	// taskSelectedStyle is used for the currently selected task item.
+	// The selected task has a cyan background and is displayed in bold.
 	taskSelectedStyle = lipgloss.NewStyle().
-				PaddingLeft(2).
-				Background(colorPrimary).
-				Foreground(lipgloss.Color("0")).
-				Bold(true)
+		PaddingLeft(2).
+		Background(colorPrimary).
+		Foreground(lipgloss.Color("0")).
+		Bold(true)
 
 	// Agent grid styles
 	agentCellStyle = lipgloss.NewStyle().
