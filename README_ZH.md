@@ -2,269 +2,53 @@
 
 <div align="center">
 
-**基于 AI 的智能多 Agent 协作开发系统**
+**AI 驱动的多 Agent 开发系统**
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Gemini](https://img.shields.io/badge/Powered_by-Gemini-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 [![Version](https://img.shields.io/badge/Version-v2.0-blue.svg)](https://github.com/Cz07cring/claude-swarm)
 
 [English](README.md) • [简体中文](README_ZH.md)
-
-[快速开始](#-快速开始) • [核心特性](#-核心特性) • [架构设计](#-架构设计-v20) • [文档](#-文档)
 
 </div>
 
 ---
 
-## 🎉 V2.0 重大更新
+## 什么是 Claude Swarm？
 
-**革命性架构升级** - 完全重新设计，追求可靠性和性能！
-
-### V2.0 新功能
-
-🚀 **直接 CLI 执行** - 移除 tmux 依赖，直接使用 Claude CLI
-- ✅ **10 倍可靠性** - 从不可控的 tmux 升级到可控的命令执行
-- ✅ **3 倍速度** - 每个任务 10-12 秒（之前会无限卡住）
-- ✅ **100% 免费** - 仍然使用免费的 Claude CLI，无 API 成本
-- ✅ **更好调试** - 直接捕获输出和错误检测
-
-🧠 **AI 风险评估** - 智能的执行前安全检查
-- 执行前自动风险评估
-- 检测并阻止危险操作
-- 生产环境安全
-
-🔄 **智能重试系统** - 自动错误恢复
-- 区分可重试错误和永久错误
-- 可配置重试次数限制
-- 指数退避策略
-
-🌳 **Git Worktree 隔离** - 每个 agent 在独立分支工作
-- Agent 之间零文件冲突
-- 并行开发互不干扰
-- 干净的合并工作流
-
----
-
-## 简介
-
-Claude Swarm 是一个创新的 **AI 驱动多 Agent 协作系统**，让你只需一句话描述需求，就能编排多个 Claude Code 实例并行开发。
+**AI 驱动的多 Agent 系统**，编排多个 Claude Code 实例并行开发。一条命令，多个 Agent，极速完成。
 
 ```bash
-# V2：启动完整开发工作流
-swarm start-v2 --agents 5
+# 启动 5 个 agents
+./swarm start-v2 --agents 5
 
-# AI 自动处理任务分发和执行
-# 每个任务 10-12 秒，完全自动化
+# 每个任务 10-12 秒完成
+# 全自动，零冲突
 ```
-
-**核心理念**：通过 AI 驱动的任务分解和并行 agent 执行，结合企业级可靠性，最大化开发效率。
 
 ---
 
 ## ✨ 核心特性
 
-### 🎯 V2.0 核心功能
+### 🚀 直接 CLI 执行
+- **可靠**：完全控制 Claude 执行
+- **快速**：每任务 10-12 秒
+- **免费**：无 API 成本
 
-#### 1. 直接 CLI 执行（新功能！）
-
-**告别 tmux 复杂性**
-
-```go
-// V1 (tmux - 不可靠)
-tmux send-keys "任务描述" Enter  // ❌ 无法控制输入
-→ Agent 卡住，无响应
-
-// V2 (直接执行 - 可靠)
-echo "任务" | claude --dangerously-skip-permissions  // ✅ 完全控制
-→ 任务在 10-12 秒内完成
-```
-
-**优势：**
-- ✅ **可靠**：完全控制 Claude 执行
-- ✅ **快速**：每个任务 10-12 秒
-- ✅ **可调试**：直接捕获输出
-- ✅ **可扩展**：无 tmux 会话限制
-
-#### 2. AI 风险评估（新功能！）
-
-**智能安全层**
-
-```go
-// 执行前
-risk := assessTaskRisk(task)
-if risk == CRITICAL {
-    block()  // 🚫 阻止危险操作
-}
-```
-
-**风险等级：**
-- 🟢 **安全**：正常操作（文件创建、代码编写）
-- 🟡 **中等**：系统命令、外部调用
-- 🔴 **危险**：破坏性操作（rm -rf、格式化等）
-
-**保护机制：**
-- 自动阻止危险命令
-- 执行前验证
+### 🧠 AI 风险评估
+- 执行前安全检查
+- 自动阻止危险操作
 - 生产环境安全
 
-#### 3. 智能重试机制（新功能！）
+### 🔄 智能重试
+- 自动检测可重试错误
+- 可配置重试次数
+- 首次重试成功率 80%
 
-**自动错误恢复**
-
-```go
-// 智能错误检测
-if isRetryable(error) {
-    retry(task, maxRetries: 3)  // 🔄 自动重试
-} else {
-    fail(task)  // ❌ 永久失败
-}
-```
-
-**可重试错误：**
-- 网络超时
-- 临时 API 故障
-- 资源不可用
-
-**不可重试：**
-- 语法错误
-- 无效操作
-- 用户错误
-
-#### 4. Git Worktree 隔离（新功能！）
-
-**零冲突并行开发**
-
-```
-main 分支
-    ├── agent-0-worktree  (feature-a) 🔨
-    ├── agent-1-worktree  (feature-b) 🔨
-    └── agent-2-worktree  (feature-c) 🔨
-          ↓
-    自动合并到 main
-```
-
-**优势：**
-- ✅ 无文件冲突
-- ✅ 隔离开发
-- ✅ 干净的 git 历史
-- ✅ 易于回滚
-
-### 🧠 AI 主脑（v2.0）
-
-**智能需求分析**
-
-- **一句话生成任务队列** - 描述需求，AI 自动拆分成 8-15 个任务
-- **模块化分解** - 识别独立模块（3-8 个模块）
-- **依赖管理** - 构建任务依赖图（DAG）
-- **精确规格** - 每个任务都有明确的验收标准
-
-<details>
-<summary>查看 AI 分析示例</summary>
-
-```bash
-$ swarm orchestrate "实现用户认证系统"
-
-🧠 AI主脑分析中...
-
-════════════════════════════════════════════════════════════
-📊 AI 分析结果
-════════════════════════════════════════════════════════════
-
-📌 概要：用户认证（注册、登录、JWT）
-🎯 复杂度：medium
-⏱️  预计：8-12h
-
-🔧 模块 (4个):
-  1. DatabaseSchema - 用户表
-  2. AuthAPI - 注册/登录端点
-  3. JWTService - Token 管理
-  4. Testing - 单元测试 + 集成测试
-
-📋 任务 (10个):
-  🟢 Task-1: 创建 users 表结构...
-  🔵 Task-2: 实现 POST /api/register...
-  🔵 Task-3: 实现 POST /api/login...
-  ...
-
-✅ 任务队列创建完成：10 个任务
-```
-
-</details>
-
-### 🎨 TUI 可视化监控
-
-**实时仪表板**
-
-- **Agent 网格** - 可视化状态显示（最多 5x5）
-- **任务列表** - 进度跟踪
-- **日志查看器** - 实时输出
-- **键盘导航** - Vim 风格控制
-
----
-
-## 🏗️ 架构设计 (V2.0)
-
-### 系统流程
-
-```
-用户输入
-    ↓
-┌─────────────────┐
-│  AI 主脑        │ (可选)
-│  Gemini 3 Flash │
-└────────┬────────┘
-         ↓
-┌─────────────────┐
-│  任务队列       │
-│  (JSON)         │
-└────────┬────────┘
-         ↓
-┌─────────────────┐
-│ CoordinatorV2   │
-│  - DAG 调度     │
-│  - Worker 池    │
-└────────┬────────┘
-         │
-    ┌────┴────┬────────┬────────┐
-    │         │        │        │
-┌───▼───┐ ┌──▼───┐ ┌──▼───┐ ┌──▼───┐
-│Agent 0│ │Agent1│ │Agent2│ │Agent3│
-│ 🌳 wt │ │ 🌳 wt│ │ 🌳 wt│ │ 🌳 wt│
-└───┬───┘ └──┬───┘ └──┬───┘ └──┬───┘
-    │        │        │        │
-    └────────┴────────┴────────┘
-              ↓
-    ┌─────────────────┐
-    │ ClaudeExecutor  │
-    │  echo | claude  │
-    │  + AI 风险评估  │
-    │  + 自动重试     │
-    └─────────────────┘
-```
-
-### V2 vs V1 对比
-
-| 特性 | V1 (tmux) | V2 (直接 CLI) |
-|------|-----------|---------------|
-| **可靠性** | ❌ 低（不可控）| ✅ 高（完全控制）|
-| **性能** | ⚠️ 卡住/超时 | ✅ 10-12秒/任务 |
-| **调试** | ❌ 困难 | ✅ 简单 |
-| **安全** | ❌ 无验证 | ✅ AI 风险评估 |
-| **错误处理** | ❌ 手动 | ✅ 自动重试 |
-| **隔离** | ❌ 文件冲突 | ✅ Worktree 隔离 |
-| **可扩展性** | ⚠️ tmux 限制 | ✅ 无限制 |
-| **成本** | ✅ 免费 | ✅ 免费 |
-
-### 核心组件
-
-| 组件 | 功能 | 技术 |
-|------|------|------|
-| **ClaudeExecutor** | 直接 CLI 执行 + AI 安全 | `echo | claude` + 风险评估 |
-| **CoordinatorV2** | 任务调度和 agent 管理 | Go workers + DAG 调度器 |
-| **Agent** | 在隔离的 worktree 中执行任务 | Git worktree + channels |
-| **AI Orchestrator** | 需求分析和任务生成 | Gemini 3 Flash Preview |
-| **Task Queue** | 状态管理和持久化 | JSON + 文件锁 |
+### 🌳 Git Worktree 隔离
+- 零文件冲突
+- 并行开发
+- 干净的合并工作流
 
 ---
 
@@ -272,395 +56,253 @@ $ swarm orchestrate "实现用户认证系统"
 
 ### 前置要求
 
-| 依赖 | 版本 | 安装方法 |
-|------|------|---------|
-| **Go** | 1.21+ | [go.dev/doc/install](https://go.dev/doc/install) |
-| **Claude Code** | 最新 | [claude.ai/claude-code](https://claude.ai/claude-code) |
-| **Git** | 2.25+ | 支持 worktree 功能 |
-| **Gemini API** | - | [ai.google.dev](https://ai.google.dev/) (可选，用于 AI 主脑) |
+```bash
+# 必需
+Go 1.21+          # 构建运行
+Claude Code       # 任务执行
+Git 2.25+         # Worktree 支持
+
+# 可选
+Gemini API Key    # AI 任务生成
+```
 
 ### 安装
 
 ```bash
-# 1. 克隆仓库
+# 克隆并构建
 git clone https://github.com/Cz07cring/claude-swarm.git
 cd claude-swarm
-
-# 2. 构建 V2
 go build -o swarm ./cmd/swarm
-
-# 3. (可选) 配置 Gemini 用于 AI 主脑
-export GEMINI_API_KEY="your-api-key-here"
 ```
 
-### 3 步上手
+### 运行第一个任务
 
 ```bash
-# 1. 准备任务队列
+# 1. 创建任务
 cat > ~/.claude-swarm/tasks.json << 'EOF'
 {
-  "tasks": [
-    {
-      "id": "task-1",
-      "description": "创建 hello.go，包含一个打印 'Hello Swarm' 的 main 函数",
-      "status": "pending",
-      "priority": 5,
-      "retry_count": 0,
-      "max_retries": 3
-    }
-  ]
+  "tasks": [{
+    "id": "task-1",
+    "description": "创建 hello.go，包含 main 函数",
+    "status": "pending",
+    "priority": 5,
+    "max_retries": 3
+  }]
 }
 EOF
 
-# 2. 启动 V2 集群
+# 2. 启动集群
 ./swarm start-v2 --agents 3
 
-# 3. 监控（另一个终端）
-watch -n 1 'cat ~/.claude-swarm/tasks.json | jq ".tasks[]"'
-```
-
-**预期输出：**
-
-```
-🚀 启动 Claude Agent Swarm V2...
-
-✓ Swarm 启动成功，3 个 agents
-✓ 任务队列: ~/.claude-swarm/tasks.json
-
-🤖 [agent-0] 执行任务: task-1
-🧠 [agent-0] AI 风险评估: 安全 - 继续执行
-⏱️  [agent-0] 任务完成，耗时 11.2 秒
-✅ [agent-0] 任务 task-1 成功完成
-
-按 Ctrl+C 停止...
+# 3. 观察执行
+# 任务约 11 秒完成
 ```
 
 ---
 
-## 📖 使用指南
-
-### 场景 1：简单任务执行
+## 📋 命令
 
 ```bash
-# 创建任务队列
-echo '{
-  "tasks": [
-    {"id": "t1", "description": "创建 README.md", "status": "pending"},
-    {"id": "t2", "description": "编写单元测试", "status": "pending"},
-    {"id": "t3", "description": "添加 CI/CD 配置", "status": "pending"}
-  ]
-}' > ~/.claude-swarm/tasks.json
+# 启动 agents
+swarm start-v2 --agents N
 
-# 启动 3 个 agents
-./swarm start-v2 --agents 3
+# 添加任务
+swarm add-task "任务描述"
 
-# 任务并行执行
-# Agent-0: t1 (11s)
-# Agent-1: t2 (12s)  } 并行执行
-# Agent-2: t3 (10s)
+# 监控（TUI）
+swarm monitor
+
+# 查看状态
+swarm status
+
+# 停止
+swarm stop
 ```
 
-### 场景 2：配合 AI 主脑
+### 配合 AI 主脑
 
 ```bash
-# 1. AI 分析需求
-./swarm orchestrate "构建一个带用户 CRUD 操作的 REST API"
-# → 自动生成 12 个任务
+# AI 从描述生成任务队列
+swarm orchestrate "构建带用户 CRUD 的 REST API"
 
-# 2. 启动 agents
-./swarm start-v2 --agents 5
-# → 5 个 agents 并行执行 12 个任务
-# → 总耗时：约 30 秒（相比串行 2+ 分钟）
-```
-
-### 场景 3：生产工作流
-
-```bash
-# 1. 创建带重试配置的任务
-{
-  "id": "prod-deploy",
-  "description": "部署服务到生产环境",
-  "status": "pending",
-  "max_retries": 5,
-  "priority": 10
-}
-
-# 2. 启动并监控
-./swarm start-v2 --agents 1 &
-./swarm monitor  # TUI 仪表板
-
-# 3. 遇到临时故障自动重试
-# 重试 1: 网络超时 → 重试
-# 重试 2: 成功 → 完成
+# 然后运行
+swarm start-v2 --agents 5
 ```
 
 ---
 
-## 📋 命令参考
+## 🏗️ 架构
 
-### 核心命令
-
-```bash
-# V2 命令（推荐）
-swarm start-v2 --agents N     # 启动 V2 集群
-swarm monitor                 # TUI 监控
-swarm status                  # CLI 状态
-
-# AI 主脑
-swarm orchestrate "需求描述"  # 生成任务队列
-
-# 任务管理
-swarm add-task "任务描述"    # 添加单个任务
-swarm stop                    # 停止集群
+```
+任务队列 (JSON)
+    ↓
+CoordinatorV2
+    ├── Agent 0 (worktree-0) ⚡
+    ├── Agent 1 (worktree-1) ⚡
+    └── Agent N (worktree-n) ⚡
+         ↓
+ClaudeExecutor
+  • echo | claude --dangerously-skip-permissions
+  • AI 风险评估
+  • 失败自动重试
 ```
 
-### V2 启动选项
+**关键点：**
+- 每个 agent 在独立的 git worktree
+- 直接 CLI 执行（无 tmux）
+- 执行前 AI 安全层
+- 网络/临时错误自动重试
+
+---
+
+## 📊 性能
+
+| 指标 | 数值 |
+|------|------|
+| 任务速度 | 10-12秒 |
+| 可靠性 | >95% |
+| 内存/Agent | ~50MB |
+| 重试成功率 | 80% |
+
+**加速示例：**
+- 10 任务，1 agent：110秒
+- 10 任务，5 agents：24秒（4.6倍快）
+- 10 任务，10 agents：12秒（9倍快）
+
+---
+
+## 📖 使用示例
+
+### 简单任务
 
 ```bash
-swarm start-v2 [flags]
+# 并行执行
+./swarm start-v2 --agents 3
 
-参数:
-  --agents int      Agent 数量（默认: 3）
-  --tasks string    任务队列文件（默认: ~/.claude-swarm/tasks.json）
-
-示例:
-  # 启动 5 个 agents
-  ./swarm start-v2 --agents 5
-
-  # 自定义任务文件
-  ./swarm start-v2 --tasks /path/to/tasks.json
+# 任务同时运行：
+# Agent-0: 创建 README (11s)
+# Agent-1: 编写测试 (12s)
+# Agent-2: 添加 CI/CD (10s)
 ```
 
-### 任务队列格式
+### 带依赖关系
 
 ```json
 {
   "tasks": [
     {
-      "id": "unique-id",
-      "description": "给 Claude 的任务描述",
-      "status": "pending",           // pending | in_progress | completed | failed
-      "priority": 5,                 // 1-10，数字越大优先级越高
-      "retry_count": 0,              // 当前重试次数
-      "max_retries": 3,              // 最大重试次数
-      "dependencies": ["other-id"],  // 必须先完成的任务 ID
-      "assignee_id": "",             // Agent ID（自动分配）
-      "created_at": "2026-02-01T00:00:00Z",
-      "updated_at": "2026-02-01T00:00:00Z"
+      "id": "t1",
+      "description": "创建数据库结构",
+      "status": "pending"
+    },
+    {
+      "id": "t2",
+      "description": "实现 API 端点",
+      "dependencies": ["t1"]
     }
   ]
 }
+```
+
+### 生产部署
+
+```bash
+# 带重试的任务
+{
+  "id": "deploy",
+  "description": "部署到生产环境",
+  "max_retries": 5,
+  "priority": 10
+}
+
+# 启动并监控
+./swarm start-v2 --agents 1 &
+./swarm monitor
 ```
 
 ---
 
 ## 🎨 TUI 监控
 
-### 功能
+实时仪表板包含：
+- **Agent 网格**：可视化状态（5x5 网格）
+- **任务列表**：进度跟踪
+- **日志查看器**：实时输出
 
-| 面板 | 功能 | 快捷键 |
-|------|------|-------|
-| **Agent 网格** | 实时 agent 状态（5x5）| h/j/k/l, Enter |
-| **任务列表** | 任务进度跟踪 | j/k 滚动 |
-| **日志查看器** | Agent 输出流 | PgUp/PgDn |
-| **状态栏** | 集群指标 | - |
-
-### Agent 状态图标
-
-| 图标 | 状态 | 含义 |
-|------|------|------|
-| ⚡ | 工作中 | 正在执行任务 |
-| 💤 | 空闲 | 等待任务 |
-| 🔄 | 重试中 | 自动重试进行中 |
-| ✅ | 成功 | 任务完成 |
-| ❌ | 错误 | 永久失败 |
-
----
-
-## 📊 性能
-
-### 基准测试 (V2.0)
-
-| 指标 | 数值 |
-|------|------|
-| **任务执行** | 10-12 秒/任务 |
-| **Agent 启动** | <1 秒 |
-| **内存使用** | 每个 agent ~50MB |
-| **可靠性** | >95% 成功率 |
-| **重试成功率** | 首次重试 80% |
-
-### 性能对比
-
-| 场景 | 串行 | V1 (tmux) | V2 (直接) |
-|------|------|-----------|----------|
-| **10 任务, 1 agent** | 120s | ∞ (卡住) | 110s |
-| **10 任务, 5 agents** | 120s | ∞ (卡住) | 24s ⚡ |
-| **10 任务, 10 agents** | 120s | ∞ (卡住) | 12s ⚡⚡ |
-
-**时间节省：** 并行执行最多可快 **90%**
-
----
-
-## 🛠️ 开发
-
-### 构建
-
-```bash
-# 开发模式
-go run ./cmd/swarm start-v2 --agents 2
-
-# 生产构建
-go build -o swarm ./cmd/swarm
-
-# 跨平台
-GOOS=linux GOARCH=amd64 go build -o swarm-linux ./cmd/swarm
-```
-
-### 测试
-
-```bash
-# 单元测试
-go test ./...
-
-# 集成测试
-./test/swarm-robustness/run_test.sh
-
-# 测试覆盖率
-go test -cover ./...
-```
-
-### 鲁棒性测试
-
-```bash
-# 5 分钟测试，3 个 agents
-./test-robustness.sh 3 300
-
-# 30 分钟长期测试
-./test-robustness.sh 5 1800
-```
+**快捷键：**
+- `Tab`：切换面板
+- `j/k`：导航
+- `Enter`：查看日志
+- `q`：退出
 
 ---
 
 ## 📚 文档
 
-### 用户指南
-- [V2 集成完成](docs/V2_INTEGRATION_COMPLETE.md) - V2 架构详情
+- [V2 架构](docs/V2_INTEGRATION_COMPLETE.md) - 技术细节
 - [用户指南](docs/guides/USER_GUIDE.md) - 完整教程
-- [配置指南](docs/guides/CONFIG_GUIDE.md) - 配置参考
-
-### 开发文档
-- [架构设计](docs/architecture/full-plan.md) - 系统设计
-- [测试报告](docs/reports/) - 测试结果
-- [TUI 文档](docs/tui/) - 监控面板指南
+- [测试报告](docs/reports/) - 验证结果
 
 ---
 
 ## 🗺️ 路线图
 
-### ✅ V2.0 (当前)
-- 直接 CLI 执行
-- AI 风险评估
-- 智能重试机制
-- Git worktree 隔离
-- 10-12 秒任务性能
+**当前 (v2.0)：**
+- ✅ 直接 CLI 执行
+- ✅ AI 风险评估
+- ✅ 智能重试
+- ✅ Worktree 隔离
 
-### 🚧 V2.1 (进行中)
-- 增强的 DAG 调度
+**下一步 (v2.1)：**
+- 增强 DAG 调度
 - 自动 git 合并
-- 性能指标（Prometheus）
 - Web 仪表板
-
-### ⏳ V3.0 (计划中)
-- 多语言支持（Python、JS、Rust）
-- 分布式执行
-- 高级 AI 决策
-- 可视化工作流编辑器
+- Prometheus 指标
 
 ---
 
 ## 💡 常见问题
 
-<details>
-<summary><b>Q: 为什么选择 V2 而不是 V1？</b></summary>
+**Q: 与手动运行 Claude 有何不同？**
+A: 自动化并行执行、任务管理、错误处理和冲突预防。多任务项目快 5-10 倍。
 
-V1 使用 tmux 的 `send-keys`，这从根本上不可靠 - 我们无法控制 Claude 何时接受输入。V2 使用直接 CLI 执行，完全控制，实现了 10 倍的可靠性和 3 倍的性能提升。
-</details>
+**Q: 是否免费？**
+A: 是的。使用免费的 Claude CLI。无 API 成本。
 
-<details>
-<summary><b>Q: V2 仍然免费吗？</b></summary>
+**Q: Agent 失败怎么办？**
+A: 网络/临时错误自动重试。永久失败会标记和记录。
 
-是的！V2 使用相同的免费 Claude CLI。`--dangerously-skip-permissions` 标志允许自动化执行，无需交互式提示。
-</details>
-
-<details>
-<summary><b>Q: AI 风险评估如何工作？</b></summary>
-
-在执行每个任务之前，系统会分析描述中的危险模式（rm -rf、format 等）。危险操作会被自动阻止。
-</details>
-
-<details>
-<summary><b>Q: 当 agent 失败时会发生什么？</b></summary>
-
-系统会检测错误是可重试的（网络、超时）还是永久性的（语法错误）。可重试错误会触发自动重试，最多达到配置的限制次数。
-</details>
-
-<details>
-<summary><b>Q: agents 之间会冲突吗？</b></summary>
-
-不会。V2 使用 git worktrees - 每个 agent 在隔离的分支中工作。完成后，更改会合并回来，不会有冲突。
-</details>
+**Q: Agents 会冲突吗？**
+A: 不会。每个 agent 在独立的 git worktree 中工作。
 
 ---
 
 ## 🤝 贡献
 
-欢迎贡献！V2 架构让开发变得更容易。
-
 ```bash
-# 1. Fork 并克隆
-git clone https://github.com/yourusername/claude-swarm.git
-
-# 2. 创建功能分支
+# Fork、克隆、创建分支
 git checkout -b feature/amazing
 
-# 3. 修改并测试
+# 修改、测试
 go test ./...
 
-# 4. 提交 PR
-git push origin feature/amazing
+# 提交 PR
 ```
 
 ---
 
 ## 📄 许可证
 
-MIT 许可证 - 详见 [LICENSE](LICENSE)
-
----
-
-## 📧 联系方式
-
-- **GitHub**: [@Cz07cring](https://github.com/Cz07cring)
-- **Issues**: [报告 Bug](https://github.com/Cz07cring/claude-swarm/issues)
-- **Discussions**: [加入讨论](https://github.com/Cz07cring/claude-swarm/discussions)
-
----
-
-## 🙏 致谢
-
-- [Claude Code](https://claude.ai/claude-code) - AI 编程助手
-- [Google Gemini](https://ai.google.dev/) - AI 主脑
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI 框架
-- 社区贡献者和测试者
+MIT License - 详见 [LICENSE](LICENSE)
 
 ---
 
 <div align="center">
 
-**⚡ V2.0**: 生产级可靠性遇上极速性能
+**⚡ v2.0** - 生产级可靠性遇上极速性能
 
-**🚀 10-12秒/任务** • **🧠 AI 驱动** • **💯 永久免费**
+**🚀 10-12秒/任务** • **🧠 AI 驱动** • **💯 免费**
 
-Made with ❤️ by Claude Sonnet 4.5
+[GitHub](https://github.com/Cz07cring) • [Issues](https://github.com/Cz07cring/claude-swarm/issues)
 
 </div>
