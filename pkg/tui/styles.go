@@ -48,25 +48,34 @@ var (
 	colorHighlight = lipgloss.Color("219") // Pink
 
 	// Base styles
+
+	// baseStyle is the default style applied to most text elements.
+	// It provides consistent text color across the UI.
 	baseStyle = lipgloss.NewStyle().
-			Foreground(colorText)
+		Foreground(colorText)
 
-	// Panel styles
+	// Panel styles define the appearance of the three main panels (Tasks, Agents, Logs)
+
+	// panelStyle is used for inactive panels with a dark gray border
 	panelStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorBorder).
-			Padding(0, 1)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorBorder).
+		Padding(0, 1)
 
+	// activePanelStyle is used for the currently focused panel with cyan border.
+	// The active panel is indicated by the ◄ symbol in its title.
 	activePanelStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(colorPrimary).
-				Padding(0, 1)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorPrimary).
+		Padding(0, 1)
 
 	// Title styles
+
+	// titleStyle is used for the main dashboard title at the top of the screen
 	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(colorPrimary).
-			MarginBottom(1)
+		Bold(true).
+		Foreground(colorPrimary).
+		MarginBottom(1)
 
 	// Status indicator styles
 	statusIdleStyle = lipgloss.NewStyle().
