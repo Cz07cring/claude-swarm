@@ -239,6 +239,25 @@ func (c *Coordinator) Stop() error {
 		c.agentStateMgr.Close()
 	}
 
+	// 🔧 Reset all in_progress tasks to pending (cleanup orphaned tasks)
+	log.Println("Resetting orphaned tasks...")
+	if c.taskQueue != nil {
+		tasks := c.taskQueue.ListTasks()
+		resetCount := 0
+		for _, task := range tasks {
+			if task.Status == models.TaskStatusInProgress {
+				if err := c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending); err != nil {
+					log.Printf("⚠️  Failed to reset task %s: %v", task.ID, err)
+				} else {
+					resetCount++
+				}
+			}
+		}
+		if resetCount > 0 {
+			log.Printf("✓ Reset %d orphaned tasks to pending", resetCount)
+		}
+	}
+
 	// Clean up worktrees
 	log.Println("Cleaning up worktrees...")
 	for _, agent := range c.agents {

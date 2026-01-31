@@ -39,7 +39,7 @@ func init() {
 	orchestrateCmd.Flags().StringVarP(&geminiAPIKey, "api-key", "k", "", "Gemini API Key（或使用配置文件/环境变量）")
 	orchestrateCmd.Flags().StringVarP(&configFilePath, "config", "c", "", "配置文件路径（默认: ./config.yaml 或 ~/.claude-swarm/config.yaml）")
 	orchestrateCmd.Flags().BoolVar(&autoStart, "auto-start", false, "分析并审批通过后自动启动Agent集群")
-	orchestrateCmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "跳过人工审批，自动创建任务")
+	orchestrateCmd.Flags().BoolVar(&autoApprove, "auto-approve", true, "跳过人工审批，自动创建任务（默认启用）")
 	orchestrateCmd.Flags().IntVarP(&maxAgents, "agents", "n", 5, "Agent数量（1-10）")
 }
 
