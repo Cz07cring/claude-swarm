@@ -63,7 +63,22 @@ type Dashboard struct {
 	updateTicker *time.Ticker
 }
 
-// NewDashboard creates a new dashboard
+// NewDashboard creates a new Dashboard instance.
+//
+// Parameters:
+//   - taskQueue: TaskQueue instance for reading task states
+//   - getAgentsFn: Function that returns current agent states
+//
+// The dashboard will automatically refresh every 2 seconds by calling
+// taskQueue.ListTasks() and getAgentsFn() to fetch the latest state.
+//
+// Example:
+//
+//	taskQueue := state.NewTaskQueue("~/.claude-swarm/tasks.json")
+//	getAgents := func() []*models.AgentStatus {
+//	    return state.LoadAgentStates("~/.claude-swarm/agents.json")
+//	}
+//	dashboard := NewDashboard(taskQueue, getAgents)
 func NewDashboard(taskQueue *state.TaskQueue, getAgentsFn func() []*models.AgentStatus) *Dashboard {
 	return &Dashboard{
 		taskQueue:    taskQueue,
@@ -75,7 +90,15 @@ func NewDashboard(taskQueue *state.TaskQueue, getAgentsFn func() []*models.Agent
 	}
 }
 
-// Init initializes the dashboard
+// Init initializes the dashboard and returns initial commands.
+// This is part of the Bubble Tea Model interface.
+//
+// It performs the following:
+//  1. Loads initial task and agent data
+//  2. Starts the refresh timer (2 second intervals)
+//  3. Enters alternate screen mode (full-screen TUI)
+//
+// Returns a batch of commands to be executed by the Bubble Tea runtime.
 func (m *Dashboard) Init() tea.Cmd {
 	// Initialize data immediately
 	m.refreshData()
@@ -86,7 +109,15 @@ func (m *Dashboard) Init() tea.Cmd {
 	)
 }
 
-// Update handles messages
+// Update processes incoming messages and updates the model state.
+// This is part of the Bubble Tea Model interface.
+//
+// Handled message types:
+//   - tea.KeyMsg: Keyboard input (navigation, quit, etc.)
+//   - tea.WindowSizeMsg: Terminal window resize events
+//   - tickMsg: Timer ticks for periodic data refresh
+//
+// Returns the updated model and any commands to execute.
 func (m *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
