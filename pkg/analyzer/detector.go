@@ -9,11 +9,29 @@ import (
 
 const (
 	// ContextWindowSize is the number of lines to keep in context
-	ContextWindowSize = 100
+	// 🔧 FIX: 增加到 200 行以获取更完整的上下文
+	ContextWindowSize = 200
 
 	// StuckThreshold is the duration after which an agent is considered stuck
 	StuckThreshold = 60 * time.Second
 )
+
+// ErrorType classifies errors for retry logic
+type ErrorType int
+
+const (
+	ErrorTypeUnknown      ErrorType = iota // Unknown error
+	ErrorTypeRetryable                     // Retryable (network, temporary failures)
+	ErrorTypeNonRetryable                  // Non-retryable (syntax, logic errors)
+	ErrorTypeFatal                         // Fatal (requires human intervention)
+)
+
+// ErrorDetails contains detailed information about an error
+type ErrorDetails struct {
+	Type    ErrorType
+	Message string
+	Context string
+}
 
 // Detector analyzes Claude output and detects state
 type Detector struct {
@@ -51,10 +69,11 @@ func (d *Detector) Analyze(output string) models.AgentState {
 		d.contextWindow = d.contextWindow[len(d.contextWindow)-ContextWindowSize:]
 	}
 
-	// Get recent context (last 20 lines)
+	// Get recent context (last 50 lines for better analysis)
+	// 🔧 FIX: 增加分析行数以获取更多上下文
 	recentLines := d.contextWindow
-	if len(recentLines) > 20 {
-		recentLines = recentLines[len(recentLines)-20:]
+	if len(recentLines) > 50 {
+		recentLines = recentLines[len(recentLines)-50:]
 	}
 	recent := strings.Join(recentLines, "\n")
 
@@ -82,10 +101,11 @@ func (d *Detector) Analyze(output string) models.AgentState {
 
 // SafeToConfirm checks if it's safe to auto-confirm
 func (d *Detector) SafeToConfirm() bool {
-	// Get recent context (last 50 lines for better analysis)
+	// Get recent context (last 100 lines for comprehensive analysis)
+	// 🔧 FIX: 增加到 100 行以获取更完整的危险操作上下文
 	recentLines := d.contextWindow
-	if len(recentLines) > 50 {
-		recentLines = recentLines[len(recentLines)-50:]
+	if len(recentLines) > 100 {
+		recentLines = recentLines[len(recentLines)-100:]
 	}
 	recent := strings.Join(recentLines, "\n")
 	recentLower := strings.ToLower(recent)
@@ -134,8 +154,9 @@ func (d *Detector) SafeToConfirm() bool {
 		return false
 	}
 
-	// 5. 默认：简单的 yes/no 确认，如果没有危险关键词就确认
-	return true
+	// 5. 🔧 FIX: 默认拒绝（安全优先原则）
+	// 只有明确识别为安全操作才确认，未知场景默认拒绝
+	return false
 }
 
 // GetContext returns the current context window
@@ -161,4 +182,96 @@ func (d *Detector) GetRecentOutput(n int) string {
 func (d *Detector) Reset() {
 	d.contextWindow = make([]string, 0, ContextWindowSize)
 	d.lastOutput = time.Now()
+}
+
+// AnalyzeError analyzes the output to determine error type and details
+func (d *Detector) AnalyzeError(output string) *ErrorDetails {
+	outputLower := strings.ToLower(output)
+
+	details := &ErrorDetails{
+		Type:    ErrorTypeUnknown,
+		Context: output,
+	}
+
+	// Retryable errors (network, temporary failures)
+	retryablePatterns := []string{
+		"timeout",
+		"connection refused",
+		"connection reset",
+		"network unreachable",
+		"temporary failure",
+		"try again",
+		"rate limit",
+		"429",
+		"503 service unavailable",
+		"504 gateway timeout",
+		"econnrefused",
+		"econnreset",
+		"etimedout",
+	}
+
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(outputLower, pattern) {
+			details.Type = ErrorTypeRetryable
+			details.Message = "Network or temporary failure detected"
+			return details
+		}
+	}
+
+	// Non-retryable errors (syntax, logic, validation)
+	nonRetryablePatterns := []string{
+		"syntax error",
+		"parse error",
+		"invalid syntax",
+		"unexpected token",
+		"undefined",
+		"not defined",
+		"cannot find",
+		"no such file",
+		"permission denied",
+		"access denied",
+		"401 unauthorized",
+		"403 forbidden",
+		"404 not found",
+		"validation error",
+		"invalid argument",
+		"type error",
+	}
+
+	for _, pattern := range nonRetryablePatterns {
+		if strings.Contains(outputLower, pattern) {
+			details.Type = ErrorTypeNonRetryable
+			details.Message = "Syntax or logic error detected"
+			return details
+		}
+	}
+
+	// Fatal errors (requires human intervention)
+	fatalPatterns := []string{
+		"panic",
+		"fatal error",
+		"segmentation fault",
+		"out of memory",
+		"disk full",
+		"no space left",
+		"database locked",
+		"corruption",
+		"critical error",
+	}
+
+	for _, pattern := range fatalPatterns {
+		if strings.Contains(outputLower, pattern) {
+			details.Type = ErrorTypeFatal
+			details.Message = "Fatal error requiring human intervention"
+			return details
+		}
+	}
+
+	// If we detected an error state but can't classify it, treat as retryable
+	if strings.Contains(outputLower, "error") || strings.Contains(outputLower, "failed") {
+		details.Type = ErrorTypeRetryable
+		details.Message = "Unclassified error - treating as retryable"
+	}
+
+	return details
 }

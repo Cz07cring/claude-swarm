@@ -14,6 +14,7 @@ import (
 	"github.com/yourusername/claude-swarm/internal/models"
 	"github.com/yourusername/claude-swarm/pkg/analyzer"
 	"github.com/yourusername/claude-swarm/pkg/git"
+	"github.com/yourusername/claude-swarm/pkg/retry"
 	"github.com/yourusername/claude-swarm/pkg/state"
 	"github.com/yourusername/claude-swarm/pkg/tmux"
 	"github.com/yourusername/claude-swarm/pkg/utils"
@@ -27,6 +28,7 @@ type Coordinator struct {
 	agentStateMgr   *state.AgentStateManager
 	worktreeManager *git.WorktreeManager
 	mergeManager    *git.MergeManager
+	retryManager    *retry.RetryManager
 	mergeMu         sync.Mutex
 	ctx             context.Context
 	cancel          context.CancelFunc
@@ -105,6 +107,9 @@ func NewCoordinator(config CoordinatorConfig) (*Coordinator, error) {
 	}
 	mergeManager := git.NewMergeManager(repo)
 
+	// Create retry manager
+	retryManager := retry.NewRetryManager(retry.DefaultRetryConfig())
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &Coordinator{
@@ -114,6 +119,7 @@ func NewCoordinator(config CoordinatorConfig) (*Coordinator, error) {
 		agentStateMgr:   agentStateMgr,
 		worktreeManager: worktreeManager,
 		mergeManager:    mergeManager,
+		retryManager:    retryManager,
 		ctx:             ctx,
 		cancel:          cancel,
 		monitorInterval: config.MonitorInterval,
@@ -560,8 +566,15 @@ func (c *Coordinator) runRescue() {
 
 				// Handle errors
 				if state == models.AgentStateError {
-					log.Printf("❌ %s encountered an error", agent.ID)
-					// TODO: Implement error handling (retry, reassign, etc.)
+					agent.mu.Lock()
+					currentTask := agent.Status.CurrentTask
+					agent.mu.Unlock()
+
+					if currentTask != nil {
+						c.handleTaskError(agent, currentTask)
+					} else {
+						log.Printf("❌ %s encountered an error but has no current task", agent.ID)
+					}
 				}
 
 				// Handle stuck agents
@@ -634,6 +647,64 @@ func (c *Coordinator) validateMergePrerequisites() error {
 	}
 
 	return nil
+}
+
+// handleTaskError handles task errors with intelligent retry logic
+func (c *Coordinator) handleTaskError(agent *Agent, task *models.Task) {
+	// Get recent output for error analysis
+	output := agent.Detector.GetRecentOutput(50)
+
+	// Analyze the error
+	errorDetails := agent.Detector.AnalyzeError(output)
+
+	log.Printf("❌ %s task %s encountered error: %s (Type: %v)",
+		agent.ID, task.ID, errorDetails.Message, errorDetails.Type)
+
+	// Determine if we should retry
+	if c.retryManager.ShouldRetry(task, errorDetails) {
+		// Record the retry
+		c.retryManager.RecordRetry(task, errorDetails)
+
+		// Calculate delay
+		delay := c.retryManager.CalculateDelay(task.RetryCount - 1) // -1 because we already incremented
+
+		log.Printf("🔄 Will retry task %s after %v (retry %d/%d)",
+			task.ID, delay, task.RetryCount, task.MaxRetries)
+
+		// Clear agent's current task
+		agent.mu.Lock()
+		agent.Status.CurrentTask = nil
+		agent.Status.State = models.AgentStateIdle
+		agent.version++
+		agent.mu.Unlock()
+
+		// Schedule retry by resetting task status after delay
+		go func() {
+			time.Sleep(delay)
+
+			// Reset task to pending for retry
+			if err := c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending); err != nil {
+				log.Printf("❌ Failed to reset task %s for retry: %v", task.ID, err)
+			} else {
+				log.Printf("✅ Task %s reset to pending for retry", task.ID)
+			}
+		}()
+	} else {
+		// Don't retry - mark as failed
+		log.Printf("❌ Task %s failed permanently: %s", task.ID, errorDetails.Message)
+
+		agent.mu.Lock()
+		agent.Status.CurrentTask = nil
+		agent.Status.State = models.AgentStateIdle
+		agent.version++
+		agent.mu.Unlock()
+
+		// Update task with error details
+		task.LastError = errorDetails.Message
+		if err := c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusFailed); err != nil {
+			log.Printf("❌ Failed to update task %s status to failed: %v", task.ID, err)
+		}
+	}
 }
 
 // mergeAgentWork merges an agent's work into the main branch
