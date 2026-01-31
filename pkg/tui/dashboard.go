@@ -62,6 +62,7 @@ type Dashboard struct {
 	agents       []*models.AgentStatus
 	quitting     bool
 	updateTicker *time.Ticker
+	lastUpdate   time.Time // 最后更新时间
 }
 
 // NewDashboard creates a new Dashboard instance.
@@ -282,7 +283,28 @@ func (m *Dashboard) View() string {
 	}
 
 	// Render title and status bar
-	title := titleStyle.Render("🐝 Claude Agent Swarm Monitor")
+	titleText := "🐝 Claude Agent Swarm Monitor"
+
+	// 添加最后更新时间指示器
+	if !m.lastUpdate.IsZero() {
+		elapsed := time.Since(m.lastUpdate)
+		updateIndicator := ""
+		if elapsed < 3*time.Second {
+			// 刚刚更新，显示绿色圆点
+			updateIndicator = " " + lipgloss.NewStyle().
+				Foreground(colorSuccess).
+				Render("●")
+		} else {
+			// 显示上次更新时间
+			updateIndicator = " " + lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Faint(true).
+				Render(fmt.Sprintf("(更新于 %ds 前)", int(elapsed.Seconds())))
+		}
+		titleText += updateIndicator
+	}
+
+	title := titleStyle.Render(titleText)
 	statusBar := m.renderStatusBar()
 
 	// Render task list pane
@@ -311,17 +333,31 @@ func (m *Dashboard) View() string {
 
 	// Render help text based on active pane
 	var helpText string
+	var tipText string
 	switch m.activePane {
 	case PaneLogs:
 		helpText = "Tab: 切换面板 | PgUp/PgDn: 滚动日志 | a: 自动滚动 | Home/End: 顶部/底部 | q: 退出 | r: 刷新"
+		tipText = "💡 提示: 使用鼠标选择文本即可复制日志内容"
 	case PaneAgents:
 		helpText = "Tab: 切换面板 | ↑↓←→/hjkl: 导航 | Home/End: 首个/末个 | Enter: 选择 | q: 退出 | r: 刷新"
+		tipText = "💡 提示: 按 Enter 查看选中 Agent 的详细日志"
 	case PaneTasks:
 		helpText = "Tab: 切换面板 | ↑↓/jk: 导航 | Home/End: 首个/末个 | Enter: 选择 | q: 退出 | r: 刷新"
+		tipText = "💡 提示: 按 Enter 查看任务对应 Agent 的执行日志"
 	default:
 		helpText = "Tab: 切换面板 | ↑↓/jk: 导航 | Enter: 选择 | q: 退出 | r: 刷新"
 	}
+
 	help := helpStyle.Render(helpText)
+
+	// 添加额外的提示行（在窄屏幕时隐藏）
+	if m.width > 100 && tipText != "" {
+		tip := lipgloss.NewStyle().
+			Foreground(colorInfo).
+			Faint(true).
+			Render(tipText)
+		help = lipgloss.JoinVertical(lipgloss.Left, help, tip)
+	}
 
 	// Combine everything
 	return lipgloss.JoinVertical(lipgloss.Left, title, statusBar, content, help)
@@ -403,6 +439,26 @@ func (m *Dashboard) renderStatusBar() string {
 	statusContent := fmt.Sprintf("%s  |  %s  |  %s%s",
 		agentMetric, taskMetric, completionMetric, warnings)
 
+	// 智能截断状态栏内容以适应窄屏幕
+	maxStatusLen := m.width - 4 // 减去 padding
+	if maxStatusLen < 30 {
+		maxStatusLen = 30
+	}
+
+	// 移除 ANSI 转义序列来计算实际显示长度
+	// 这是一个简化的处理，实际长度会比这个短一些（因为有格式化代码）
+	if len(statusContent) > maxStatusLen*2 { // *2 因为有很多格式化代码
+		// 窄屏幕模式：只显示最重要的信息
+		shortStatus := fmt.Sprintf("%s工作 %s空闲 | %s完成 %s进行中%s",
+			metricValueStyle.Render(fmt.Sprintf("%d", workingAgents)),
+			metricValueStyle.Render(fmt.Sprintf("%d", idleAgents)),
+			metricSuccessStyle.Render(fmt.Sprintf("%d", completedTasks)),
+			metricValueStyle.Render(fmt.Sprintf("%d", activeTasks)),
+			warnings,
+		)
+		statusContent = shortStatus
+	}
+
 	return statusBarStyle.Width(m.width).Render(statusContent)
 }
 
@@ -483,6 +539,9 @@ func (m *Dashboard) refreshData() {
 
 	// Update log viewer with current selection
 	m.updateLogViewer()
+
+	// 记录更新时间
+	m.lastUpdate = time.Now()
 }
 
 // updateLogViewer updates the log viewer based on active pane

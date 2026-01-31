@@ -17,6 +17,14 @@ type TaskListView struct {
 	width         int
 }
 
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // NewTaskListView creates a new task list view
 func NewTaskListView(width, height int) *TaskListView {
 	return &TaskListView{
@@ -154,8 +162,28 @@ func (v *TaskListView) renderTask(task *models.Task, selected bool) string {
 	assignee := ""
 	if task.AssigneeID != "" {
 		agentID := task.AssigneeID
+		// 智能截取：优先保留后缀数字
 		if len(agentID) > 8 {
-			agentID = agentID[:8]
+			// 如果是 "agent-123" 格式，保留数字部分
+			if strings.Contains(agentID, "-") {
+				parts := strings.Split(agentID, "-")
+				if len(parts) > 1 {
+					// 保留前缀+数字，如 "agt-123"
+					prefix := "agt"
+					if len(parts[0]) > 0 {
+						prefix = parts[0][:min(3, len(parts[0]))]
+					}
+					agentID = prefix + "-" + parts[len(parts)-1]
+					if len(agentID) > 8 {
+						agentID = agentID[:8]
+					}
+				} else {
+					agentID = agentID[:8]
+				}
+			} else {
+				// 没有分隔符，保留前后各一部分
+				agentID = agentID[:4] + "..." + agentID[len(agentID)-1:]
+			}
 		}
 		assignee = lipgloss.NewStyle().
 			Foreground(colorInfo).
