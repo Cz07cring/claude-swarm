@@ -1,0 +1,26 @@
+{
+  "name": "并发压力测试",
+  "tasks": [
+    {
+      "id": "concurrent-1",
+      "description": "创建文件 file1.txt 包含随机字符串",
+      "priority": 5
+    },
+    {
+      "id": "concurrent-2",
+      "description": "创建文件 file2.txt 包含当前时间",
+      "priority": 5
+    },
+    {
+      "id": "concurrent-3",
+      "description": "创建文件 file3.txt 包含系统信息",
+      "priority": 5
+    },
+    {
+      "id": "concurrent-4",
+      "description": "读取 file1.txt, file2.txt, file3.txt 并合并到 merged.txt",
+      "priority": 3,
+      "dependencies": ["concurrent-1", "concurrent-2", "concurrent-3"]
+    }
+  ]
+}

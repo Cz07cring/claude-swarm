@@ -1,49 +1,48 @@
-# 编译产物
+# Binaries
+/bin/swarm
 /swarm
 *.exe
-*.exe~
-*.dll
-*.so
-*.dylib
 
-# 测试二进制文件
-*.test
-
-# 输出覆盖率
+# Test coverage
+/test/coverage/
 *.out
+coverage.html
+coverage.xml
 
-# Go workspace 文件
-go.work
-
-# 依赖目录
-vendor/
-
-# 日志文件
+# Logs
+/logs/
 *.log
-/tmp/
 
-# 任务队列数据
-.claude-swarm/
-*.json
+# Temporary files
+*.tmp
+*.temp
+hello.txt
+test*.txt
+simple.go
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# OS files
+.DS_Store
+Thumbs.db
 *~
 
-# macOS
-.DS_Store
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
 
-# 临时文件
-*.tmp
-test-file.txt
-hello.go
-.archive/
+# Build artifacts
+dist/
+build/
 
-# Worktrees
-.worktrees/
+# Go
+vendor/
 
-# 配置文件（包含敏感信息）
+# Config (keep example)
 config.yaml
+!config.yaml.example
+
+# Archive and worktrees
+.archive/
+.worktrees/

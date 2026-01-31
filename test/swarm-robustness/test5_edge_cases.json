@@ -1,0 +1,20 @@
+{
+  "name": "边界条件测试",
+  "tasks": [
+    {
+      "id": "edge-1",
+      "description": "创建一个包含特殊字符的文件名：测试文件_@#$%.txt",
+      "priority": 5
+    },
+    {
+      "id": "edge-2",
+      "description": "处理一个非常长的字符串：生成一个包含1000个字符的随机字符串并写入文件",
+      "priority": 5
+    },
+    {
+      "id": "edge-3",
+      "description": "测试空操作：列出当前目录但不做任何修改",
+      "priority": 5
+    }
+  ]
+}

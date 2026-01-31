@@ -182,6 +182,27 @@ func (tq *TaskQueue) UpdateTaskStatus(taskID string, status models.TaskStatus) e
 	return tq.save()
 }
 
+// ResetOrphanedTask resets a task to pending and clears assignee
+// Used when cleaning up orphaned tasks on swarm stop
+func (tq *TaskQueue) ResetOrphanedTask(taskID string) error {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	task, exists := tq.tasks[taskID]
+	if !exists {
+		return fmt.Errorf("task not found: %s", taskID)
+	}
+
+	task.Status = models.TaskStatusPending
+	task.AssigneeID = ""
+	task.UpdatedAt = time.Now()
+
+	// Update in scheduler
+	tq.scheduler.UpdateTask(task)
+
+	return tq.save()
+}
+
 // GetTask gets a task by ID
 func (tq *TaskQueue) GetTask(taskID string) (*models.Task, error) {
 	tq.mu.Lock()

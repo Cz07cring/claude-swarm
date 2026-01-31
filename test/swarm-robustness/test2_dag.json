@@ -1,0 +1,29 @@
+{
+  "name": "DAG依赖测试",
+  "tasks": [
+    {
+      "id": "dag-1",
+      "description": "创建一个 User 结构体定义文件 user.go",
+      "priority": 10,
+      "dependencies": []
+    },
+    {
+      "id": "dag-2",
+      "description": "基于 user.go 创建 UserService 接口文件 service.go",
+      "priority": 8,
+      "dependencies": ["dag-1"]
+    },
+    {
+      "id": "dag-3",
+      "description": "实现 UserService 的内存存储版本 memory_store.go",
+      "priority": 6,
+      "dependencies": ["dag-2"]
+    },
+    {
+      "id": "dag-4",
+      "description": "编写 UserService 的单元测试 service_test.go",
+      "priority": 4,
+      "dependencies": ["dag-3"]
+    }
+  ]
+}

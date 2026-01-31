@@ -1,0 +1,23 @@
+{
+  "name": "错误恢复测试",
+  "tasks": [
+    {
+      "id": "error-1",
+      "description": "尝试执行一个可能超时的命令（模拟网络请求）：curl -m 1 http://httpbin.org/delay/5",
+      "priority": 5,
+      "max_retries": 3
+    },
+    {
+      "id": "error-2",
+      "description": "创建一个包含语法错误的 Go 文件并尝试编译（测试不可重试错误）",
+      "priority": 5,
+      "max_retries": 3
+    },
+    {
+      "id": "error-3",
+      "description": "创建正确的 Go 程序并成功编译（验证错误后的恢复）",
+      "priority": 5,
+      "max_retries": 3
+    }
+  ]
+}

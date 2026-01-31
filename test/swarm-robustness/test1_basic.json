@@ -1,0 +1,20 @@
+{
+  "name": "基础功能测试",
+  "tasks": [
+    {
+      "id": "basic-1",
+      "description": "创建一个简单的 Go 程序，输出 Hello Swarm",
+      "priority": 5
+    },
+    {
+      "id": "basic-2", 
+      "description": "创建一个计算斐波那契数列的函数（递归实现）",
+      "priority": 5
+    },
+    {
+      "id": "basic-3",
+      "description": "编写一个读取当前目录文件列表的程序",
+      "priority": 5
+    }
+  ]
+}
