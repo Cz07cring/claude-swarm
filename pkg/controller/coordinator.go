@@ -428,8 +428,10 @@ func (c *Coordinator) runScheduler() {
 							// 任务发送失败，清空 CurrentTask
 							agent.mu.Lock()
 							agent.Status.CurrentTask = nil
+							agent.Status.State = models.AgentStateIdle
 							agent.mu.Unlock()
 							_ = c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending)
+							log.Printf("🔄 %s state reset to idle (task send failed)", agent.ID)
 							continue
 						}
 
