@@ -188,8 +188,11 @@ func (v *LogViewerView) Render() string {
 				Render(fmt.Sprintf("%4d│ ", lineNum))
 
 			// Truncate long lines
-			if len(line) > v.width-8 {
+			maxLineLen := v.width - 8
+			if maxLineLen > 11 && len(line) > maxLineLen {
 				line = line[:v.width-11] + "..."
+			} else if maxLineLen > 0 && len(line) > maxLineLen {
+				line = line[:maxLineLen]
 			}
 
 			content.WriteString(lineNumStr)

@@ -75,7 +75,7 @@ func (v *AgentGridView) Update(agents []*models.AgentStatus) {
 
 // MoveUp moves selection up in the grid with wrap-around
 func (v *AgentGridView) MoveUp() {
-	if len(v.agents) == 0 {
+	if len(v.agents) == 0 || v.cols <= 0 {
 		return
 	}
 	newIndex := v.selectedIndex - v.cols
@@ -99,7 +99,7 @@ func (v *AgentGridView) MoveUp() {
 
 // MoveDown moves selection down in the grid with wrap-around
 func (v *AgentGridView) MoveDown() {
-	if len(v.agents) == 0 {
+	if len(v.agents) == 0 || v.cols <= 0 {
 		return
 	}
 	newIndex := v.selectedIndex + v.cols
@@ -114,7 +114,7 @@ func (v *AgentGridView) MoveDown() {
 
 // MoveLeft moves selection left in the grid with wrap-around
 func (v *AgentGridView) MoveLeft() {
-	if len(v.agents) == 0 {
+	if len(v.agents) == 0 || v.cols <= 0 {
 		return
 	}
 	if v.selectedIndex%v.cols > 0 {
@@ -132,7 +132,7 @@ func (v *AgentGridView) MoveLeft() {
 
 // MoveRight moves selection right in the grid with wrap-around
 func (v *AgentGridView) MoveRight() {
-	if len(v.agents) == 0 {
+	if len(v.agents) == 0 || v.cols <= 0 {
 		return
 	}
 	if v.selectedIndex%v.cols < v.cols-1 && v.selectedIndex+1 < len(v.agents) {
@@ -177,9 +177,12 @@ func (v *AgentGridView) Render(isActive bool) string {
 	}
 
 	// Calculate cell dimensions dynamically
-	cellWidth := (v.width - (v.cols - 1)) / v.cols
-	if cellWidth < 15 {
-		cellWidth = 15 // Minimum width
+	cellWidth := 20 // Default width
+	if v.cols > 0 && v.width > 0 {
+		cellWidth = (v.width - (v.cols - 1)) / v.cols
+		if cellWidth < 15 {
+			cellWidth = 15 // Minimum width
+		}
 	}
 
 	// Determine if we should use compact mode
@@ -261,8 +264,13 @@ func (v *AgentGridView) renderAgentCell(agent *models.AgentStatus, selected bool
 			info.WriteString("\n")
 			taskDesc := agent.CurrentTask.Description
 			maxTaskLen := cellWidth - 4
-			if len(taskDesc) > maxTaskLen {
+			if maxTaskLen < 10 {
+				maxTaskLen = 10
+			}
+			if len(taskDesc) > maxTaskLen && maxTaskLen > 3 {
 				taskDesc = taskDesc[:maxTaskLen-3] + "..."
+			} else if len(taskDesc) > maxTaskLen {
+				taskDesc = taskDesc[:maxTaskLen]
 			}
 			info.WriteString(lipgloss.NewStyle().
 				Foreground(colorInfo).

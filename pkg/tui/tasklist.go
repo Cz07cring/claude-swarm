@@ -141,8 +141,13 @@ func (v *TaskListView) renderTask(task *models.Task, selected bool) string {
 	// Truncate description if too long
 	desc := task.Description
 	maxDescLen := v.width - 18 // Reserve space for icons and info
-	if len(desc) > maxDescLen {
+	if maxDescLen < 10 {
+		maxDescLen = 10
+	}
+	if len(desc) > maxDescLen && maxDescLen > 3 {
 		desc = desc[:maxDescLen-3] + "..."
+	} else if len(desc) > maxDescLen {
+		desc = desc[:maxDescLen]
 	}
 
 	// Format assignee with better styling

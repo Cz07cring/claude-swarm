@@ -265,7 +265,21 @@ func (m *Dashboard) View() string {
 	agentWidth := m.width / 3
 	logWidth := m.width - taskWidth - agentWidth - 6 // Account for borders
 
+	// Ensure minimum widths
+	if taskWidth < 20 {
+		taskWidth = 20
+	}
+	if agentWidth < 20 {
+		agentWidth = 20
+	}
+	if logWidth < 20 {
+		logWidth = 20
+	}
+
 	contentHeight := m.height - 6 // Reserve space for title, status bar and help
+	if contentHeight < 5 {
+		contentHeight = 5
+	}
 
 	// Render title and status bar
 	title := titleStyle.Render("🐝 Claude Agent Swarm Monitor")
