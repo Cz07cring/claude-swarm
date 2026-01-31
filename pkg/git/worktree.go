@@ -6,13 +6,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
 // WorktreeManager manages Git worktrees for agents
 type WorktreeManager struct {
-	repo   *Repository
-	config WorktreeConfig
+	repo            *Repository
+	config          WorktreeConfig
+	activeWorktrees map[string]*Worktree // Track active worktrees by agentID
+	mu              sync.RWMutex         // Protect the activeWorktrees map
 }
 
 // NewWorktreeManager creates a new WorktreeManager
@@ -31,18 +34,27 @@ func NewWorktreeManager(config WorktreeConfig) (*WorktreeManager, error) {
 	}
 
 	return &WorktreeManager{
-		repo:   repo,
-		config: config,
+		repo:            repo,
+		config:          config,
+		activeWorktrees: make(map[string]*Worktree),
 	}, nil
 }
 
 // CreateWorktree creates a new worktree for an agent
 func (wm *WorktreeManager) CreateWorktree(agentID string) (*Worktree, error) {
+	wm.mu.Lock()
+	defer wm.mu.Unlock()
+
+	// Check if worktree is already tracked
+	if _, exists := wm.activeWorktrees[agentID]; exists {
+		return nil, ErrWorktreeExists
+	}
+
 	branchName := fmt.Sprintf("agent-%s-branch", agentID)
 	worktreePath := filepath.Join(wm.repo.Path, wm.config.WorktreeRootDir,
 		fmt.Sprintf("agent-%s", agentID))
 
-	// Check if worktree already exists
+	// Check if worktree already exists on disk
 	if _, err := os.Stat(worktreePath); err == nil {
 		return nil, ErrWorktreeExists
 	}
@@ -61,16 +73,29 @@ func (wm *WorktreeManager) CreateWorktree(agentID string) (*Worktree, error) {
 		return nil, fmt.Errorf("failed to create worktree: %w, output: %s", err, string(output))
 	}
 
-	return &Worktree{
+	worktree := &Worktree{
 		Path:       worktreePath,
 		BranchName: branchName,
 		AgentID:    agentID,
 		CreatedAt:  time.Now(),
-	}, nil
+	}
+
+	// Track the worktree
+	wm.activeWorktrees[agentID] = worktree
+
+	return worktree, nil
 }
 
 // RemoveWorktree removes a worktree and its associated branch
 func (wm *WorktreeManager) RemoveWorktree(agentID string) error {
+	wm.mu.Lock()
+	defer wm.mu.Unlock()
+
+	return wm.removeWorktreeUnlocked(agentID)
+}
+
+// removeWorktreeUnlocked removes a worktree without acquiring lock (for internal use)
+func (wm *WorktreeManager) removeWorktreeUnlocked(agentID string) error {
 	branchName := fmt.Sprintf("agent-%s-branch", agentID)
 	worktreePath := filepath.Join(wm.repo.Path, wm.config.WorktreeRootDir,
 		fmt.Sprintf("agent-%s", agentID))
@@ -92,6 +117,9 @@ func (wm *WorktreeManager) RemoveWorktree(agentID string) error {
 			return fmt.Errorf("failed to delete branch: %w, output: %s", err, string(output))
 		}
 	}
+
+	// Remove from tracking
+	delete(wm.activeWorktrees, agentID)
 
 	return nil
 }
@@ -156,4 +184,30 @@ func (wm *WorktreeManager) GetWorktree(agentID string) (*Worktree, error) {
 	}
 
 	return nil, ErrWorktreeNotFound
+}
+
+// CleanupAll removes all active worktrees
+func (wm *WorktreeManager) CleanupAll() error {
+	wm.mu.Lock()
+	defer wm.mu.Unlock()
+
+	var errs []error
+	for agentID := range wm.activeWorktrees {
+		if err := wm.removeWorktreeUnlocked(agentID); err != nil {
+			errs = append(errs, fmt.Errorf("failed to remove worktree for %s: %w", agentID, err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("cleanup errors: %v", errs)
+	}
+
+	return nil
+}
+
+// GetActiveWorktreeCount returns the number of currently active worktrees
+func (wm *WorktreeManager) GetActiveWorktreeCount() int {
+	wm.mu.RLock()
+	defer wm.mu.RUnlock()
+	return len(wm.activeWorktrees)
 }

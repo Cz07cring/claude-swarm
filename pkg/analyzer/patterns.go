@@ -22,16 +22,47 @@ var (
 
 // DangerKeywords are keywords that indicate potentially dangerous operations
 var DangerKeywords = []string{
+	// File operations
 	"delete",
 	"remove",
-	"drop",
-	"force",
-	"destructive",
 	"rm -rf",
+	"rm -r",
+	"truncate",
+	"unlink",
+	"destroy",
+
+	// Git dangerous operations
 	"git reset --hard",
 	"git push --force",
-	"truncate",
-	"destroy",
+	"git push -f",
+	"git clean -f",
+	"git clean -fd",
+	"git branch -D",
+	"git rebase --hard",
+	"--force-with-lease",
+
+	// Database operations
+	"drop table",
+	"drop database",
+	"truncate table",
+	"delete from",
+
+	// System operations
+	"kill -9",
+	"killall",
+	"shutdown",
+	"reboot",
+	"format",
+	"fdisk",
+	"mkfs",
+
+	// General danger indicators
+	"force",
+	"destructive",
+	"purge",
+	"wipe",
+	"erase",
+	"overwrite",
 }
 
 // SafeConfirmKeywords are keywords that indicate safe confirmation

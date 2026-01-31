@@ -16,6 +16,7 @@ import (
 	"github.com/yourusername/claude-swarm/pkg/git"
 	"github.com/yourusername/claude-swarm/pkg/state"
 	"github.com/yourusername/claude-swarm/pkg/tmux"
+	"github.com/yourusername/claude-swarm/pkg/utils"
 )
 
 // Coordinator manages the agent swarm
@@ -43,6 +44,7 @@ type Agent struct {
 	Worktree   *git.Worktree
 	WorkingDir string
 	mu         sync.Mutex
+	version    uint64  // State version number for detecting concurrent modifications
 }
 
 // CoordinatorConfig holds configuration for the coordinator
@@ -346,6 +348,7 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 
 				// 保存必要信息在锁外执行合并
 				taskID := currentTask.ID
+				currentVersion := agent.version
 
 				// 临时释放锁以执行合并（避免死锁）
 				agent.mu.Unlock()
@@ -356,9 +359,14 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 				// 重新获取锁，验证状态是否仍然有效
 				agent.mu.Lock()
 
-				// 验证：确保任务仍然是我们处理的那个任务
-				if agent.Status.CurrentTask != nil && agent.Status.CurrentTask.ID == taskID {
+				// 使用版本号验证状态未被修改
+				if agent.version == currentVersion &&
+					agent.Status.CurrentTask != nil &&
+					agent.Status.CurrentTask.ID == taskID {
 					// 状态仍然有效，可以安全更新
+					// 递增版本号表示状态已修改
+					agent.version++
+
 					if mergeErr != nil {
 						log.Printf("❌ 合并失败 - %s: %v", agent.ID, mergeErr)
 						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
@@ -376,8 +384,8 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 					log.Printf("🔄 %s state changed: %s → %s (task completed)", agent.ID, prevState, models.AgentStateIdle)
 				} else {
 					// 状态已被其他 goroutine 修改，记录警告
-					log.Printf("⚠️  %s: 任务状态在合并过程中已变更 (expected: %s, current: %v)",
-						agent.ID, taskID, agent.Status.CurrentTask)
+					log.Printf("⚠️  %s: 任务状态在合并过程中已变更 (version: %d → %d, expected task: %s, current: %v)",
+						agent.ID, currentVersion, agent.version, taskID, agent.Status.CurrentTask)
 
 					// 仍然更新任务队列中的状态
 					if mergeErr != nil {
@@ -393,6 +401,9 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 				continue
 			} else {
 				// 正常状态更新
+				if prevState != detectedState {
+					agent.version++  // Increment version on state change
+				}
 				agent.Status.State = detectedState
 				agent.Status.LastUpdate = time.Now()
 				agent.Status.Output = agent.Detector.GetRecentOutput(10)
@@ -409,6 +420,45 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 			}
 		}
 	}
+}
+
+// tryAssignTask atomically attempts to assign a task to an agent
+// Returns true if assignment was successful, false otherwise
+func (c *Coordinator) tryAssignTask(agent *Agent) bool {
+	agent.mu.Lock()
+	defer agent.mu.Unlock()
+
+	// Check if agent is still idle and has no task
+	if agent.Status.State != models.AgentStateIdle || agent.Status.CurrentTask != nil {
+		return false
+	}
+
+	// Try to claim a task
+	task, err := c.taskQueue.ClaimTask(agent.ID)
+	if err != nil {
+		log.Printf("❌ Error claiming task for %s: %v", agent.ID, err)
+		return false
+	}
+
+	if task == nil {
+		// No tasks available
+		return false
+	}
+
+	// Assign task (version will be incremented when state changes)
+	agent.Status.CurrentTask = task
+
+	// Send task to agent (still holding lock to prevent state changes)
+	if err := agent.Pane.SendLine(task.Description); err != nil {
+		log.Printf("❌ Error sending task to %s: %v", agent.ID, err)
+		// Task send failed, rollback
+		agent.Status.CurrentTask = nil
+		_ = c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending)
+		return false
+	}
+
+	log.Printf("📋 已分配任务 %s 给 %s: %s", task.ID, agent.ID, task.Description)
+	return true
 }
 
 // runScheduler runs the task scheduler
@@ -431,8 +481,10 @@ func (c *Coordinator) runScheduler() {
 			log.Println("📅 Scheduler stopped")
 			return
 		case <-ticker.C:
-			// Find idle agents
+			// Find idle agents and try to assign tasks atomically
+			hasIdleAgents := false
 			for _, agent := range c.agents {
+				// Quick check without lock first
 				agent.mu.Lock()
 				state := agent.Status.State
 				hasTask := agent.Status.CurrentTask != nil
@@ -442,6 +494,7 @@ func (c *Coordinator) runScheduler() {
 				if !hasTask && state != models.AgentStateIdle && state != models.AgentStateWaitingConfirm {
 					log.Printf("⚠️  %s 状态不一致：state=%s but hasTask=false，重置为 idle", agent.ID, state)
 					agent.Status.State = models.AgentStateIdle
+					agent.version++
 					state = models.AgentStateIdle
 				}
 
@@ -451,37 +504,18 @@ func (c *Coordinator) runScheduler() {
 				log.Printf("📅 Scheduler check: %s state=%s hasTask=%v isIdle=%v", agent.ID, state, hasTask, isIdle)
 
 				if isIdle {
-					// Try to claim a task
-					task, err := c.taskQueue.ClaimTask(agent.ID)
-					if err != nil {
-						log.Printf("❌ Error claiming task for %s: %v", agent.ID, err)
-						continue
-					}
-
-					if task != nil {
-						// Assign task to agent (不手动设置状态，让 Detector 检测)
-						agent.mu.Lock()
-						agent.Status.CurrentTask = task
-						agent.mu.Unlock()
-
-						// Send task to agent
-						if err := agent.Pane.SendLine(task.Description); err != nil {
-							log.Printf("❌ Error sending task to %s: %v", agent.ID, err)
-							// 任务发送失败，清空 CurrentTask
-							agent.mu.Lock()
-							agent.Status.CurrentTask = nil
-							agent.Status.State = models.AgentStateIdle
-							agent.mu.Unlock()
-							_ = c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending)
-							log.Printf("🔄 %s state reset to idle (task send failed)", agent.ID)
-							continue
-						}
-
-						log.Printf("📋 已分配任务 %s 给 %s: %s", task.ID, agent.ID, task.Description)
-					} else {
-						log.Printf("📅 No pending tasks available")
+					hasIdleAgents = true
+					// Atomically try to assign a task
+					assigned := c.tryAssignTask(agent)
+					if !assigned {
+						// Either no tasks available or assignment failed
+						// Continue to check other agents
 					}
 				}
+			}
+
+			if hasIdleAgents {
+				log.Printf("📅 Idle agents found, tasks may have been assigned")
 			}
 		}
 	}
@@ -612,6 +646,16 @@ func (c *Coordinator) mergeAgentWork(agent *Agent) error {
 	worktreePath := filepath.Join(c.repoPath, ".worktrees", fmt.Sprintf("agent-%s", agentID))
 
 	log.Printf("🔀 Merging %s to main...", branchName)
+
+	// Check disk space before merging (require at least 100MB free)
+	requiredSpace := uint64(100 * 1024 * 1024) // 100MB
+	if err := utils.CheckDiskSpace(c.repoPath, requiredSpace); err != nil {
+		available, _ := utils.GetAvailableDiskSpace(c.repoPath)
+		return fmt.Errorf("磁盘空间不足: %s 可用, 需要 %s: %w",
+			utils.FormatBytes(available),
+			utils.FormatBytes(requiredSpace),
+			err)
+	}
 
 	// 验证前置条件
 	if err := c.validateMergePrerequisites(); err != nil {

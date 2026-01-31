@@ -1,5 +1,7 @@
 package tmux
 
+import "sync"
+
 // Session represents a tmux session
 type Session struct {
 	Name  string
@@ -11,4 +13,5 @@ type Pane struct {
 	ID      string
 	Index   int
 	AgentID string
+	sendMu  sync.Mutex  // Protects send operations to prevent race conditions
 }

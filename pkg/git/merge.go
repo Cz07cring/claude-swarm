@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 // MergeManager handles merge operations
 type MergeManager struct {
-	repo *Repository
+	repo       *Repository
+	mu         sync.Mutex  // Protect concurrent merge operations
+	inProgress bool        // Track if a merge is in progress
 }
 
 // NewMergeManager creates a new MergeManager
@@ -18,6 +21,17 @@ func NewMergeManager(repo *Repository) *MergeManager {
 
 // MergeBranch merges a branch into the current branch
 func (mm *MergeManager) MergeBranch(branchName string) (*MergeResult, error) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	// Check if another merge is in progress
+	if mm.inProgress {
+		return nil, fmt.Errorf("merge already in progress")
+	}
+
+	mm.inProgress = true
+	defer func() { mm.inProgress = false }()
+
 	result := &MergeResult{}
 
 	// Try fast-forward merge first

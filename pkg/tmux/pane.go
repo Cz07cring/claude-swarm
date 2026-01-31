@@ -18,6 +18,9 @@ func (p *Pane) Capture() (string, error) {
 
 // SendKeys sends keys to the pane
 func (p *Pane) SendKeys(keys string) error {
+	p.sendMu.Lock()
+	defer p.sendMu.Unlock()
+
 	cmd := exec.Command("tmux", "send-keys", "-t", p.ID, keys)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to send keys: %w", err)
@@ -26,15 +29,15 @@ func (p *Pane) SendKeys(keys string) error {
 }
 
 // SendLine sends a line (with Enter) to the pane
+// Uses a single tmux command to send both text and Enter atomically
 func (p *Pane) SendLine(line string) error {
-	// 先发送文本
-	if err := p.SendKeys(line); err != nil {
-		return err
-	}
-	// 然后发送 Enter 键
-	cmd := exec.Command("tmux", "send-keys", "-t", p.ID, "Enter")
+	p.sendMu.Lock()
+	defer p.sendMu.Unlock()
+
+	// Use single tmux command to send text and Enter atomically
+	cmd := exec.Command("tmux", "send-keys", "-t", p.ID, line, "Enter")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to send Enter: %w", err)
+		return fmt.Errorf("failed to send line: %w", err)
 	}
 	return nil
 }
