@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yourusername/claude-swarm/internal/models"
@@ -17,6 +18,7 @@ const (
 
 // Detector analyzes Claude output and detects state
 type Detector struct {
+	mu            sync.Mutex
 	contextWindow []string
 	lastOutput    time.Time
 }
@@ -31,6 +33,9 @@ func NewDetector() *Detector {
 
 // Analyze analyzes the output and returns the detected state
 func (d *Detector) Analyze(output string) models.AgentState {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	
 	if output == "" {
 		// Check if stuck (no output for StuckThreshold)
 		if time.Since(d.lastOutput) > StuckThreshold {
@@ -82,6 +87,9 @@ func (d *Detector) Analyze(output string) models.AgentState {
 
 // SafeToConfirm checks if it's safe to auto-confirm
 func (d *Detector) SafeToConfirm() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	
 	// Get recent context (last 50 lines for better analysis)
 	recentLines := d.contextWindow
 	if len(recentLines) > 50 {
@@ -140,11 +148,16 @@ func (d *Detector) SafeToConfirm() bool {
 
 // GetContext returns the current context window
 func (d *Detector) GetContext() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	return strings.Join(d.contextWindow, "\n")
 }
 
 // GetRecentOutput returns the last N lines
 func (d *Detector) GetRecentOutput(n int) string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	
 	if n > len(d.contextWindow) {
 		n = len(d.contextWindow)
 	}
@@ -159,6 +172,8 @@ func (d *Detector) GetRecentOutput(n int) string {
 
 // Reset resets the detector state
 func (d *Detector) Reset() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.contextWindow = make([]string, 0, ContextWindowSize)
 	d.lastOutput = time.Now()
 }

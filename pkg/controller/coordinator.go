@@ -313,8 +313,12 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 
 				// 保存必要信息在锁外执行合并
 				taskID := currentTask.ID
+				taskDescription := currentTask.Description
 
 				// 临时释放锁以执行合并（避免死锁）
+				// Note: This creates a potential race condition where the agent state
+				// could be modified by the scheduler between unlock and relock.
+				// We validate the state after reacquiring the lock to detect this.
 				agent.mu.Unlock()
 
 				log.Printf("🔀 开始合并 %s 的工作到 main 分支...", agent.ID)
@@ -324,14 +328,19 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 				agent.mu.Lock()
 
 				// 验证：确保任务仍然是我们处理的那个任务
+				// If the task was changed by scheduler during merge, log a warning
 				if agent.Status.CurrentTask != nil && agent.Status.CurrentTask.ID == taskID {
 					// 状态仍然有效，可以安全更新
 					if mergeErr != nil {
 						log.Printf("❌ 合并失败 - %s: %v", agent.ID, mergeErr)
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
+						if err := c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed); err != nil {
+							log.Printf("⚠️  Failed to update task %s status to failed: %v", taskID, err)
+						}
 					} else {
 						log.Printf("✅ 合并成功 - 任务 %s 已完成", taskID)
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
+						if err := c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted); err != nil {
+							log.Printf("⚠️  Failed to update task %s status to completed: %v", taskID, err)
+						}
 					}
 
 					// 清空任务
@@ -343,14 +352,20 @@ func (c *Coordinator) monitorAgent(agent *Agent) {
 					log.Printf("🔄 %s state changed: %s → %s (task completed)", agent.ID, prevState, models.AgentStateIdle)
 				} else {
 					// 状态已被其他 goroutine 修改，记录警告
-					log.Printf("⚠️  %s: 任务状态在合并过程中已变更 (expected: %s, current: %v)",
-						agent.ID, taskID, agent.Status.CurrentTask)
+					// This is a race condition - the scheduler assigned a new task during merge
+					log.Printf("⚠️  %s: 任务状态在合并过程中已变更 (expected: %s [%s], current: %v)",
+						agent.ID, taskID, taskDescription, agent.Status.CurrentTask)
+					log.Printf("⚠️  This indicates a race condition between monitor and scheduler!")
 
-					// 仍然更新任务队列中的状态
+					// 仍然更新任务队列中的状态 - the merge already happened
 					if mergeErr != nil {
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed)
+						if err := c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusFailed); err != nil {
+							log.Printf("⚠️  Failed to update task %s status to failed: %v", taskID, err)
+						}
 					} else {
-						_ = c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted)
+						if err := c.taskQueue.UpdateTaskStatus(taskID, models.TaskStatusCompleted); err != nil {
+							log.Printf("⚠️  Failed to update task %s status to completed: %v", taskID, err)
+						}
 					}
 				}
 
@@ -429,7 +444,9 @@ func (c *Coordinator) runScheduler() {
 							agent.mu.Lock()
 							agent.Status.CurrentTask = nil
 							agent.mu.Unlock()
-							_ = c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending)
+							if err := c.taskQueue.UpdateTaskStatus(task.ID, models.TaskStatusPending); err != nil {
+								log.Printf("⚠️  Failed to reset task %s status to pending: %v", task.ID, err)
+							}
 							continue
 						}
 
