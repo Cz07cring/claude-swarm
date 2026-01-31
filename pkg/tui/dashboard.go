@@ -1,3 +1,18 @@
+// Package tui implements the terminal user interface for Claude Agent Swarm monitoring.
+// It provides real-time visualization of task queues, agent status, and execution logs.
+//
+// The TUI is built using the Bubble Tea framework (https://github.com/charmbracelet/bubbletea)
+// which follows the Elm Architecture pattern for building interactive terminal applications.
+//
+// Usage:
+//
+//	taskQueue := state.NewTaskQueue("~/.claude-swarm/tasks.json")
+//	getAgents := func() []*models.AgentStatus {
+//	    return state.LoadAgentStates("~/.claude-swarm/agents.json")
+//	}
+//	if err := tui.Run(taskQueue, getAgents); err != nil {
+//	    log.Fatal(err)
+//	}
 package tui
 
 import (
@@ -9,19 +24,30 @@ import (
 	"github.com/yourusername/claude-swarm/pkg/state"
 )
 
-// ActivePane represents which pane is currently active
+// ActivePane represents which panel is currently focused in the TUI.
+// The active panel is highlighted with a cyan border and can receive keyboard input.
 type ActivePane int
 
 const (
+	// PaneTasks indicates the Tasks panel (left) is active
 	PaneTasks ActivePane = iota
+	// PaneAgents indicates the Agents panel (middle) is active
 	PaneAgents
+	// PaneLogs indicates the Logs panel (right) is active
 	PaneLogs
 )
 
-// tickMsg is sent on every tick
+// tickMsg is sent on every tick interval to trigger data refresh.
+// The default tick interval is 2 seconds.
 type tickMsg time.Time
 
-// Dashboard is the main TUI model
+// Dashboard is the main TUI model that implements the Bubble Tea Model interface.
+// It coordinates three sub-views (Tasks, Agents, Logs) and handles user input.
+//
+// The Dashboard follows the Elm Architecture:
+//   - Init(): Initializes the model and returns initial commands
+//   - Update(msg): Processes messages (keyboard, timer) and updates state
+//   - View(): Renders the current state as a string
 type Dashboard struct {
 	taskQueue    *state.TaskQueue
 	getAgentsFn  func() []*models.AgentStatus
