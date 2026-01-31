@@ -110,6 +110,26 @@ Agent 执行任务
 任务完成
 ```
 
+## 📁 项目结构
+
+```
+claude-swarm/
+├── README.md              # 项目主文档
+├── cmd/                   # 命令行入口
+├── pkg/                   # 公共库（TUI、控制器、Git 操作等）
+├── internal/              # 内部实现
+├── docs/                  # 📚 文档
+│   ├── guides/            #   用户指南和教程
+│   ├── reports/           #   测试和改进报告
+│   └── tui/               #   TUI 相关文档
+├── scripts/               # 🔧 脚本工具
+│   ├── tests/             #   测试脚本
+│   └── tools/             #   工具脚本
+└── config.yaml.example    # 配置示例
+```
+
+📖 **详细说明**: 查看 [DIRECTORY_STRUCTURE.md](DIRECTORY_STRUCTURE.md)
+
 ## 快速开始
 
 ### 前置要求
