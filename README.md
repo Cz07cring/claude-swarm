@@ -276,8 +276,8 @@ User Input
 |------------|---------|--------------|
 | **Go** | 1.21+ | [go.dev/doc/install](https://go.dev/doc/install) |
 | **Claude Code** | Latest | [claude.ai/claude-code](https://claude.ai/claude-code) |
-| **Git** | 2.25+ | (For worktree support) |
-| **Gemini API** | - | [ai.google.dev](https://ai.google.dev/) (Optional) |
+| **Git** | 2.25+ | For worktree support |
+| **Gemini API** | - | [ai.google.dev](https://ai.google.dev/) (Optional, for AI Orchestrator) |
 
 ### Installation
 

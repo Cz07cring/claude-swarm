@@ -276,8 +276,8 @@ $ swarm orchestrate "实现用户认证系统"
 |------|------|---------|
 | **Go** | 1.21+ | [go.dev/doc/install](https://go.dev/doc/install) |
 | **Claude Code** | 最新 | [claude.ai/claude-code](https://claude.ai/claude-code) |
-| **Git** | 2.25+ | (支持 worktree) |
-| **Gemini API** | - | [ai.google.dev](https://ai.google.dev/) (可选) |
+| **Git** | 2.25+ | 支持 worktree 功能 |
+| **Gemini API** | - | [ai.google.dev](https://ai.google.dev/) (可选，用于 AI 主脑) |
 
 ### 安装
 
