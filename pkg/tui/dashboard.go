@@ -16,6 +16,7 @@
 package tui
 
 import (
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -147,6 +148,11 @@ func (m *Dashboard) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.updateTicker.Stop()
 		return m, tea.Quit
 
+	case "r", "R":
+		// Manual refresh
+		m.refreshData()
+		return m, nil
+
 	case "tab":
 		// Cycle through panes
 		m.activePane = (m.activePane + 1) % 3
@@ -187,9 +193,47 @@ func (m *Dashboard) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.updateLogViewer()
 		}
 
+	case "pageup", "pgup":
+		if m.activePane == PaneLogs && m.logViewer != nil {
+			m.logViewer.ScrollUp(10)
+		}
+
+	case "pagedown", "pgdown":
+		if m.activePane == PaneLogs && m.logViewer != nil {
+			m.logViewer.ScrollDown(10)
+		}
+
+	case "a":
+		// Toggle auto-scroll in log viewer
+		if m.activePane == PaneLogs && m.logViewer != nil {
+			m.logViewer.ToggleAutoScroll()
+		}
+
 	case "enter":
 		// Select current item and update log viewer
 		m.updateLogViewer()
+
+	case "home":
+		// Jump to first item
+		switch m.activePane {
+		case PaneTasks:
+			m.taskList.MoveToFirst()
+			m.updateLogViewer()
+		case PaneAgents:
+			m.agentGrid.MoveToFirst()
+			m.updateLogViewer()
+		}
+
+	case "end":
+		// Jump to last item
+		switch m.activePane {
+		case PaneTasks:
+			m.taskList.MoveToLast()
+			m.updateLogViewer()
+		case PaneAgents:
+			m.agentGrid.MoveToLast()
+			m.updateLogViewer()
+		}
 	}
 
 	return m, nil
@@ -221,40 +265,131 @@ func (m *Dashboard) View() string {
 	agentWidth := m.width / 3
 	logWidth := m.width - taskWidth - agentWidth - 6 // Account for borders
 
-	contentHeight := m.height - 4 // Reserve space for title and help
+	contentHeight := m.height - 6 // Reserve space for title, status bar and help
 
-	// Render title
-	title := titleStyle.Render("Claude Agent Swarm Monitor")
+	// Render title and status bar
+	title := titleStyle.Render("🐝 Claude Agent Swarm Monitor")
+	statusBar := m.renderStatusBar()
 
 	// Render task list pane
-	taskTitle := "Tasks"
+	taskTitle := "📋 Tasks"
 	if m.activePane == PaneTasks {
-		taskTitle = "Tasks ◄"
+		taskTitle = "📋 Tasks ◄"
 	}
 	taskPane := m.renderPane(taskTitle, m.taskList.Render(), taskWidth, contentHeight, m.activePane == PaneTasks)
 
 	// Render agent grid pane
-	agentTitle := "Agents"
+	agentTitle := "🤖 Agents"
 	if m.activePane == PaneAgents {
-		agentTitle = "Agents ◄"
+		agentTitle = "🤖 Agents ◄"
 	}
 	agentPane := m.renderPane(agentTitle, m.agentGrid.Render(m.activePane == PaneAgents), agentWidth, contentHeight, m.activePane == PaneAgents)
 
 	// Render log viewer pane
-	logTitle := "Logs"
+	logTitle := "📜 Logs"
 	if m.activePane == PaneLogs {
-		logTitle = "Logs ◄"
+		logTitle = "📜 Logs ◄"
 	}
 	logPane := m.renderPane(logTitle, m.logViewer.Render(), logWidth, contentHeight, m.activePane == PaneLogs)
 
 	// Join panes horizontally
 	content := lipgloss.JoinHorizontal(lipgloss.Top, taskPane, agentPane, logPane)
 
-	// Render help text
-	help := helpStyle.Render("Tab: switch pane | ↑↓/jk: navigate | Enter: select | q: quit")
+	// Render help text based on active pane
+	var helpText string
+	switch m.activePane {
+	case PaneLogs:
+		helpText = "Tab: 切换面板 | PgUp/PgDn: 滚动日志 | a: 自动滚动 | Home/End: 顶部/底部 | q: 退出 | r: 刷新"
+	case PaneAgents:
+		helpText = "Tab: 切换面板 | ↑↓←→/hjkl: 导航 | Home/End: 首个/末个 | Enter: 选择 | q: 退出 | r: 刷新"
+	case PaneTasks:
+		helpText = "Tab: 切换面板 | ↑↓/jk: 导航 | Home/End: 首个/末个 | Enter: 选择 | q: 退出 | r: 刷新"
+	default:
+		helpText = "Tab: 切换面板 | ↑↓/jk: 导航 | Enter: 选择 | q: 退出 | r: 刷新"
+	}
+	help := helpStyle.Render(helpText)
 
 	// Combine everything
-	return lipgloss.JoinVertical(lipgloss.Left, title, content, help)
+	return lipgloss.JoinVertical(lipgloss.Left, title, statusBar, content, help)
+}
+
+// renderStatusBar renders the top status bar with cluster metrics
+func (m *Dashboard) renderStatusBar() string {
+	// Calculate metrics
+	totalTasks := len(m.tasks)
+	totalAgents := len(m.agents)
+
+	var pendingTasks, activeTasks, completedTasks, failedTasks int
+	for _, task := range m.tasks {
+		switch task.Status {
+		case models.TaskStatusPending:
+			pendingTasks++
+		case models.TaskStatusInProgress:
+			activeTasks++
+		case models.TaskStatusCompleted:
+			completedTasks++
+		case models.TaskStatusFailed:
+			failedTasks++
+		}
+	}
+
+	var idleAgents, workingAgents, waitingAgents, errorAgents int
+	for _, agent := range m.agents {
+		switch agent.State {
+		case models.AgentStateIdle:
+			idleAgents++
+		case models.AgentStateWorking:
+			workingAgents++
+		case models.AgentStateWaitingConfirm:
+			waitingAgents++
+		case models.AgentStateError, models.AgentStateStuck:
+			errorAgents++
+		}
+	}
+
+	// Calculate completion rate
+	completionRate := 0.0
+	if totalTasks > 0 {
+		completionRate = float64(completedTasks) / float64(totalTasks) * 100
+	}
+
+	// Format metrics
+	agentMetric := fmt.Sprintf("%s: %s/%s 工作中 • %s 空闲",
+		metricLabelStyle.Render("Agents"),
+		metricValueStyle.Render(fmt.Sprintf("%d", workingAgents)),
+		metricValueStyle.Render(fmt.Sprintf("%d", totalAgents)),
+		metricValueStyle.Render(fmt.Sprintf("%d", idleAgents)),
+	)
+
+	taskMetric := fmt.Sprintf("%s: %s 总计 • %s 完成 • %s 进行中 • %s 待处理",
+		metricLabelStyle.Render("Tasks"),
+		metricValueStyle.Render(fmt.Sprintf("%d", totalTasks)),
+		metricSuccessStyle.Render(fmt.Sprintf("%d", completedTasks)),
+		metricValueStyle.Render(fmt.Sprintf("%d", activeTasks)),
+		metricLabelStyle.Render(fmt.Sprintf("%d", pendingTasks)),
+	)
+
+	completionMetric := fmt.Sprintf("%s: %s",
+		metricLabelStyle.Render("完成率"),
+		metricSuccessStyle.Render(fmt.Sprintf("%.1f%%", completionRate)),
+	)
+
+	// Add warnings if any
+	warnings := ""
+	if errorAgents > 0 {
+		warnings += " • " + metricErrorStyle.Render(fmt.Sprintf("⚠ %d 错误", errorAgents))
+	}
+	if waitingAgents > 0 {
+		warnings += " • " + metricWarningStyle.Render(fmt.Sprintf("⏸ %d 等待", waitingAgents))
+	}
+	if failedTasks > 0 {
+		warnings += " • " + metricErrorStyle.Render(fmt.Sprintf("✗ %d 失败", failedTasks))
+	}
+
+	statusContent := fmt.Sprintf("%s  |  %s  |  %s%s",
+		agentMetric, taskMetric, completionMetric, warnings)
+
+	return statusBarStyle.Width(m.width).Render(statusContent)
 }
 
 // renderPane renders a pane with title and content

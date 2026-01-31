@@ -8,34 +8,34 @@ var (
 	// Color palette defines the color scheme used across all TUI components.
 	// All colors are specified using 256-color palette codes.
 
-	// colorPrimary is the main accent color (Cyan #86) used for:
+	// colorPrimary is the main accent color (Bright Cyan #51) used for:
 	// - Active panel borders
 	// - Title text
 	// - Selected agent highlights
-	colorPrimary = lipgloss.Color("86") // Cyan
+	colorPrimary = lipgloss.Color("51") // Bright Cyan
 
-	// colorSuccess indicates successful or completed states (Green #42):
+	// colorSuccess indicates successful or completed states (Bright Green #46):
 	// - Completed tasks (✓ icon)
-	colorSuccess = lipgloss.Color("42") // Green
+	colorSuccess = lipgloss.Color("46") // Bright Green
 
-	// colorWarning indicates warning or pending states (Yellow #226):
+	// colorWarning indicates warning or pending states (Bright Yellow #226):
 	// - Agents waiting for user confirmation
 	colorWarning = lipgloss.Color("226") // Yellow
 
-	// colorError indicates error or failed states (Red #196):
+	// colorError indicates error or failed states (Bright Red #196):
 	// - Failed tasks (✗ icon)
 	// - Agents in error or stuck state
 	colorError = lipgloss.Color("196") // Red
 
-	// colorIdle indicates idle or pending states (Gray #240):
+	// colorIdle indicates idle or pending states (Gray #243):
 	// - Pending tasks (○ icon)
 	// - Idle agents
-	colorIdle = lipgloss.Color("240") // Gray
+	colorIdle = lipgloss.Color("243") // Light Gray
 
-	// colorWorking indicates active working states (Blue #39):
+	// colorWorking indicates active working states (Bright Blue #33):
 	// - Tasks in progress (● icon)
 	// - Working agents
-	colorWorking = lipgloss.Color("39") // Blue
+	colorWorking = lipgloss.Color("33") // Bright Blue
 
 	// colorBorder is the default border color for inactive panels (Dark gray #238)
 	colorBorder = lipgloss.Color("238") // Dark gray
@@ -43,9 +43,15 @@ var (
 	// colorText is the default text color for most content (Light gray #252)
 	colorText = lipgloss.Color("252") // Light gray
 
-	// colorHighlight is used for selected items (Pink #219):
+	// colorHighlight is used for selected items (Bright Magenta #201):
 	// - Selected agent cell borders
-	colorHighlight = lipgloss.Color("219") // Pink
+	colorHighlight = lipgloss.Color("201") // Bright Magenta
+
+	// colorInfo is used for informational text (Soft blue #111)
+	colorInfo = lipgloss.Color("111") // Soft Blue
+
+	// colorMuted is used for less important text (Dark gray #245)
+	colorMuted = lipgloss.Color("245") // Dark Gray
 
 	// Base styles
 
@@ -188,7 +194,78 @@ var (
 	// helpStyle is used for the help text bar at the bottom of the screen.
 	// Displays keyboard shortcuts and usage hints.
 	helpStyle = lipgloss.NewStyle().
-		Foreground(colorIdle).
+		Foreground(colorMuted).
 		Faint(true).
 		MarginTop(1)
+
+	// Status bar styles
+
+	// statusBarStyle is used for the top status bar showing cluster metrics
+	statusBarStyle = lipgloss.NewStyle().
+		Background(lipgloss.Color("235")).
+		Foreground(colorText).
+		Padding(0, 1).
+		MarginBottom(1)
+
+	// metricLabelStyle is used for metric labels in the status bar
+	metricLabelStyle = lipgloss.NewStyle().
+		Foreground(colorMuted).
+		Bold(false)
+
+	// metricValueStyle is used for metric values in the status bar
+	metricValueStyle = lipgloss.NewStyle().
+		Foreground(colorPrimary).
+		Bold(true)
+
+	// metricSuccessStyle is used for positive metrics
+	metricSuccessStyle = lipgloss.NewStyle().
+		Foreground(colorSuccess).
+		Bold(true)
+
+	// metricWarningStyle is used for warning metrics
+	metricWarningStyle = lipgloss.NewStyle().
+		Foreground(colorWarning).
+		Bold(true)
+
+	// metricErrorStyle is used for error metrics
+	metricErrorStyle = lipgloss.NewStyle().
+		Foreground(colorError).
+		Bold(true)
+
+	// Progress indicator styles
+
+	// progressBarBg is the background style for progress bars
+	progressBarBg = lipgloss.NewStyle().
+		Foreground(colorBorder)
+
+	// progressBarFg is the foreground style for progress bars
+	progressBarFg = lipgloss.NewStyle().
+		Foreground(colorWorking)
+
+	// Badge styles
+
+	// badgeStyle is the base style for status badges
+	badgeStyle = lipgloss.NewStyle().
+		Padding(0, 1).
+		Bold(true)
+
+	// badgePendingStyle is for pending status badges
+	badgePendingStyle = badgeStyle.Copy().
+		Background(colorIdle).
+		Foreground(lipgloss.Color("0"))
+
+	// badgeWorkingStyle is for working status badges
+	badgeWorkingStyle = badgeStyle.Copy().
+		Background(colorWorking).
+		Foreground(lipgloss.Color("0"))
+
+	// badgeSuccessStyle is for success status badges
+	badgeSuccessStyle = badgeStyle.Copy().
+		Background(colorSuccess).
+		Foreground(lipgloss.Color("0"))
+
+	// badgeErrorStyle is for error status badges
+	badgeErrorStyle = badgeStyle.Copy().
+		Background(colorError).
+		Foreground(lipgloss.Color("0"))
 )

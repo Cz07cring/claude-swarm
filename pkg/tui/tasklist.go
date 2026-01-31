@@ -53,6 +53,20 @@ func (v *TaskListView) MoveDown() {
 	}
 }
 
+// MoveToFirst moves selection to the first task
+func (v *TaskListView) MoveToFirst() {
+	if len(v.tasks) > 0 {
+		v.selectedIndex = 0
+	}
+}
+
+// MoveToLast moves selection to the last task
+func (v *TaskListView) MoveToLast() {
+	if len(v.tasks) > 0 {
+		v.selectedIndex = len(v.tasks) - 1
+	}
+}
+
 // GetSelectedTask returns the currently selected task
 func (v *TaskListView) GetSelectedTask() *models.Task {
 	if v.selectedIndex >= 0 && v.selectedIndex < len(v.tasks) {
@@ -100,24 +114,24 @@ func (v *TaskListView) Render() string {
 
 // renderTask renders a single task line
 func (v *TaskListView) renderTask(task *models.Task, selected bool) string {
-	// Status indicator
+	// Status indicator with emoji
 	var statusIcon string
 	var statusStyle lipgloss.Style
 	switch task.Status {
 	case models.TaskStatusPending:
-		statusIcon = "○"
+		statusIcon = "⏳"
 		statusStyle = statusIdleStyle
 	case models.TaskStatusInProgress:
-		statusIcon = "●"
+		statusIcon = "🔄"
 		statusStyle = statusWorkingStyle
 	case models.TaskStatusCompleted:
-		statusIcon = "✓"
+		statusIcon = "✅"
 		statusStyle = statusSuccessStyle
 	case models.TaskStatusFailed:
-		statusIcon = "✗"
+		statusIcon = "❌"
 		statusStyle = statusErrorStyle
 	default:
-		statusIcon = "?"
+		statusIcon = "❓"
 		statusStyle = statusIdleStyle
 	}
 
@@ -126,21 +140,29 @@ func (v *TaskListView) renderTask(task *models.Task, selected bool) string {
 
 	// Truncate description if too long
 	desc := task.Description
-	maxDescLen := v.width - 15 // Reserve space for status and ID
+	maxDescLen := v.width - 18 // Reserve space for icons and info
 	if len(desc) > maxDescLen {
 		desc = desc[:maxDescLen-3] + "..."
 	}
 
-	// Format assignee
+	// Format assignee with better styling
 	assignee := ""
 	if task.AssigneeID != "" {
-		assignee = fmt.Sprintf(" [%s]", task.AssigneeID)
+		agentID := task.AssigneeID
+		if len(agentID) > 8 {
+			agentID = agentID[:8]
+		}
+		assignee = lipgloss.NewStyle().
+			Foreground(colorInfo).
+			Render(fmt.Sprintf("[%s]", agentID))
 	}
 
 	// Time since created/updated
-	timeSince := formatTimeSince(task.UpdatedAt)
+	timeSince := lipgloss.NewStyle().
+		Foreground(colorMuted).
+		Render(formatTimeSince(task.UpdatedAt))
 
-	line := fmt.Sprintf("%s %s%s %s", statusStr, desc, assignee, timeSince)
+	line := fmt.Sprintf("%s %s %s %s", statusStr, desc, assignee, timeSince)
 
 	// Apply selection style
 	if selected {

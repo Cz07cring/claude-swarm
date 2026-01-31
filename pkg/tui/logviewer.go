@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -9,110 +10,239 @@ import (
 
 // LogViewerView displays logs for a selected agent
 type LogViewerView struct {
-	agent  *models.AgentStatus
-	width  int
-	height int
+	agent        *models.AgentStatus
+	width        int
+	height       int
+	scrollOffset int  // Current scroll position
+	autoScroll   bool // Auto-scroll to bottom
 }
 
 // NewLogViewerView creates a new log viewer
 func NewLogViewerView(width, height int) *LogViewerView {
 	return &LogViewerView{
-		width:  width,
-		height: height,
+		width:        width,
+		height:       height,
+		scrollOffset: 0,
+		autoScroll:   true, // Auto-scroll enabled by default
 	}
 }
 
 // Update updates the displayed agent
 func (v *LogViewerView) Update(agent *models.AgentStatus) {
 	v.agent = agent
+	// Reset scroll when switching agents
+	v.scrollOffset = 0
 }
 
-// Render renders the log viewer
+// ScrollUp scrolls the log view up
+func (v *LogViewerView) ScrollUp(lines int) {
+	v.scrollOffset -= lines
+	if v.scrollOffset < 0 {
+		v.scrollOffset = 0
+	}
+	v.autoScroll = false
+}
+
+// ScrollDown scrolls the log view down
+func (v *LogViewerView) ScrollDown(lines int) {
+	v.scrollOffset += lines
+	v.autoScroll = false
+}
+
+// ScrollToTop scrolls to the top of logs
+func (v *LogViewerView) ScrollToTop() {
+	v.scrollOffset = 0
+	v.autoScroll = false
+}
+
+// ScrollToBottom scrolls to the bottom of logs
+func (v *LogViewerView) ScrollToBottom() {
+	v.scrollOffset = 999999 // Will be clamped in Render
+	v.autoScroll = true
+}
+
+// ToggleAutoScroll toggles auto-scroll mode
+func (v *LogViewerView) ToggleAutoScroll() {
+	v.autoScroll = !v.autoScroll
+	if v.autoScroll {
+		v.scrollOffset = 999999
+	}
+}
+
+// Render renders the log viewer with scroll support
 func (v *LogViewerView) Render() string {
 	if v.agent == nil {
 		return lipgloss.NewStyle().
 			Width(v.width).
 			Height(v.height).
 			Align(lipgloss.Center, lipgloss.Center).
-			Render("Select an agent to view logs")
+			Render("选择一个 Agent 查看日志")
 	}
 
 	var content strings.Builder
 
-	// Agent header
+	// Agent header with status indicator
 	header := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(colorPrimary).
-		Render(v.agent.AgentID)
+		Render(fmt.Sprintf("📌 %s", v.agent.AgentID))
 	content.WriteString(header)
-	content.WriteString("\n")
+	content.WriteString(" ")
 
-	// State
+	// State badge
 	var stateStyle lipgloss.Style
+	var stateBadge string
 	switch v.agent.State {
 	case models.AgentStateIdle:
-		stateStyle = statusIdleStyle
+		stateStyle = badgePendingStyle
+		stateBadge = "空闲"
 	case models.AgentStateWorking:
-		stateStyle = statusWorkingStyle
+		stateStyle = badgeWorkingStyle
+		stateBadge = "工作中"
 	case models.AgentStateWaitingConfirm:
-		stateStyle = statusWaitingStyle
+		stateStyle = badgeStyle.Copy().Background(colorWarning).Foreground(lipgloss.Color("0"))
+		stateBadge = "等待"
 	case models.AgentStateError, models.AgentStateStuck:
-		stateStyle = statusErrorStyle
+		stateStyle = badgeErrorStyle
+		stateBadge = "错误"
 	default:
-		stateStyle = baseStyle
+		stateStyle = badgeStyle
+		stateBadge = string(v.agent.State)
 	}
-	content.WriteString(stateStyle.Render(string(v.agent.State)))
-	content.WriteString("\n\n")
+	content.WriteString(stateStyle.Render(stateBadge))
+	content.WriteString("\n")
+	content.WriteString(strings.Repeat("─", v.width))
+	content.WriteString("\n")
+
+	headerLines := 3 // Header + state + separator
 
 	// Current task
 	if v.agent.CurrentTask != nil {
-		content.WriteString(lipgloss.NewStyle().Foreground(colorText).Bold(true).Render("Task:"))
+		taskLabel := lipgloss.NewStyle().Foreground(colorInfo).Bold(true).Render("📋 任务:")
+		content.WriteString(taskLabel)
 		content.WriteString("\n")
-		content.WriteString(v.agent.CurrentTask.Description)
-		content.WriteString("\n\n")
+
+		taskDesc := v.agent.CurrentTask.Description
+		// Wrap long task descriptions
+		wrappedDesc := wrapText(taskDesc, v.width-2)
+		content.WriteString(lipgloss.NewStyle().Foreground(colorText).Render(wrappedDesc))
+		content.WriteString("\n")
+		content.WriteString(strings.Repeat("─", v.width))
+		content.WriteString("\n")
+
+		headerLines += 3 + strings.Count(wrappedDesc, "\n")
 	}
 
-	// Output/logs
+	// Output/logs with scroll support
 	if v.agent.Output != "" {
-		content.WriteString(lipgloss.NewStyle().Foreground(colorText).Bold(true).Render("Output:"))
-		content.WriteString("\n")
-
-		// Split output into lines and show last N lines that fit
-		lines := strings.Split(v.agent.Output, "\n")
-
-		// Calculate how many lines we can show
-		headerLines := 4 // agent header + state + blank line
-		if v.agent.CurrentTask != nil {
-			// Count lines in task description
-			taskLines := len(strings.Split(v.agent.CurrentTask.Description, "\n"))
-			headerLines += 2 + taskLines // "Task:" + description + blank line
+		logLabel := lipgloss.NewStyle().Foreground(colorInfo).Bold(true).Render("📜 输出:")
+		scrollIndicator := ""
+		if !v.autoScroll {
+			scrollIndicator = lipgloss.NewStyle().Foreground(colorMuted).Render(" [滚动模式]")
 		}
-		headerLines += 2 // "Output:" + blank line
+		content.WriteString(logLabel)
+		content.WriteString(scrollIndicator)
+		content.WriteString("\n")
+		headerLines++
 
-		availableLines := v.height - headerLines
+		// Split output into lines
+		lines := strings.Split(v.agent.Output, "\n")
+		totalLines := len(lines)
+
+		// Calculate available lines for logs
+		availableLines := v.height - headerLines - 1
 		if availableLines < 1 {
 			availableLines = 1
 		}
 
-		// Show last N lines
-		start := len(lines) - availableLines
-		if start < 0 {
-			start = 0
+		// Apply scroll offset with auto-scroll
+		start := v.scrollOffset
+		if v.autoScroll {
+			start = totalLines - availableLines
+			if start < 0 {
+				start = 0
+			}
+			v.scrollOffset = start
+		} else {
+			// Clamp scroll offset
+			maxScroll := totalLines - availableLines
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if start > maxScroll {
+				start = maxScroll
+				v.scrollOffset = start
+			}
 		}
 
-		for _, line := range lines[start:] {
+		end := start + availableLines
+		if end > totalLines {
+			end = totalLines
+		}
+
+		// Render visible log lines
+		for i, line := range lines[start:end] {
+			lineNum := start + i + 1
+			lineNumStr := lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Render(fmt.Sprintf("%4d│ ", lineNum))
+
 			// Truncate long lines
-			if len(line) > v.width-4 {
-				line = line[:v.width-7] + "..."
+			if len(line) > v.width-8 {
+				line = line[:v.width-11] + "..."
 			}
+
+			content.WriteString(lineNumStr)
 			content.WriteString(logLineStyle.Render(line))
 			content.WriteString("\n")
 		}
+
+		// Show scroll position indicator
+		if totalLines > availableLines {
+			scrollPos := lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Faint(true).
+				Render(fmt.Sprintf("─ %d-%d / %d 行 ─", start+1, end, totalLines))
+			content.WriteString(scrollPos)
+		}
 	} else {
 		content.WriteString(lipgloss.NewStyle().
+			Foreground(colorMuted).
 			Faint(true).
-			Render("No output available"))
+			Render("暂无输出"))
 	}
 
 	return content.String()
+}
+
+// wrapText wraps text to fit within the specified width
+func wrapText(text string, width int) string {
+	if len(text) <= width {
+		return text
+	}
+
+	var result strings.Builder
+	words := strings.Fields(text)
+	currentLine := ""
+
+	for _, word := range words {
+		if len(currentLine)+len(word)+1 <= width {
+			if currentLine != "" {
+				currentLine += " "
+			}
+			currentLine += word
+		} else {
+			if currentLine != "" {
+				result.WriteString(currentLine)
+				result.WriteString("\n")
+			}
+			currentLine = word
+		}
+	}
+
+	if currentLine != "" {
+		result.WriteString(currentLine)
+	}
+
+	return result.String()
 }
