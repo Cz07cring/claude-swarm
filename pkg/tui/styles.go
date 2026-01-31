@@ -124,55 +124,71 @@ var (
 		Foreground(lipgloss.Color("0")).
 		Bold(true)
 
-	// Agent grid styles
+	// Agent grid styles define the appearance of agent cells in the 3x3 grid
+
+	// agentCellStyle is the base style for agent cells (neutral state)
 	agentCellStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(colorBorder).
-			Width(20).
-			Height(4).
-			Padding(0, 1).
-			Align(lipgloss.Center, lipgloss.Center)
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(colorBorder).
+		Width(20).
+		Height(4).
+		Padding(0, 1).
+		Align(lipgloss.Center, lipgloss.Center)
 
+	// agentCellIdleStyle is used for idle agents (gray border)
+	// Indicates the agent is not currently assigned to any task
 	agentCellIdleStyle = lipgloss.NewStyle().
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(colorIdle).
-				Width(20).
-				Height(4).
-				Padding(0, 1).
-				Align(lipgloss.Center, lipgloss.Center)
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(colorIdle).
+		Width(20).
+		Height(4).
+		Padding(0, 1).
+		Align(lipgloss.Center, lipgloss.Center)
 
+	// agentCellWorkingStyle is used for working agents (blue border)
+	// Indicates the agent is actively executing a task
 	agentCellWorkingStyle = lipgloss.NewStyle().
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(colorWorking).
-				Width(20).
-				Height(4).
-				Padding(0, 1).
-				Align(lipgloss.Center, lipgloss.Center)
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(colorWorking).
+		Width(20).
+		Height(4).
+		Padding(0, 1).
+		Align(lipgloss.Center, lipgloss.Center)
 
+	// agentCellWaitingStyle is used for agents waiting for confirmation (yellow border)
+	// Indicates the agent needs user input to proceed
 	agentCellWaitingStyle = lipgloss.NewStyle().
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(colorWarning).
-				Width(20).
-				Height(4).
-				Padding(0, 1).
-				Align(lipgloss.Center, lipgloss.Center)
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(colorWarning).
+		Width(20).
+		Height(4).
+		Padding(0, 1).
+		Align(lipgloss.Center, lipgloss.Center)
 
+	// agentCellErrorStyle is used for agents in error or stuck state (red border)
+	// Indicates the agent encountered an error or is unresponsive
 	agentCellErrorStyle = lipgloss.NewStyle().
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(colorError).
-				Width(20).
-				Height(4).
-				Padding(0, 1).
-				Align(lipgloss.Center, lipgloss.Center)
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(colorError).
+		Width(20).
+		Height(4).
+		Padding(0, 1).
+		Align(lipgloss.Center, lipgloss.Center)
 
 	// Log viewer styles
+
+	// logLineStyle is used for individual log lines in the right panel.
+	// The faint attribute makes logs visually distinct from headers.
 	logLineStyle = lipgloss.NewStyle().
-			Foreground(colorText).
-			Faint(true)
+		Foreground(colorText).
+		Faint(true)
 
 	// Help text styles
+
+	// helpStyle is used for the help text bar at the bottom of the screen.
+	// Displays keyboard shortcuts and usage hints.
 	helpStyle = lipgloss.NewStyle().
-			Foreground(colorIdle).
-			Faint(true).
-			MarginTop(1)
+		Foreground(colorIdle).
+		Faint(true).
+		MarginTop(1)
 )
