@@ -306,3 +306,60 @@ MIT License - see [LICENSE](LICENSE)
 [GitHub](https://github.com/Cz07cring) • [Issues](https://github.com/Cz07cring/claude-swarm/issues)
 
 </div>
+
+---
+
+## 📂 Project Structure
+
+After reorganization, the project follows a clean and professional structure:
+
+```
+claude-swarm/
+├── cmd/                    # Command-line entry points
+│   └── swarm/             # Swarm main program
+├── internal/              # Internal packages (private)
+│   ├── config/           # Configuration management
+│   ├── models/           # Data models
+│   └── utils/            # Utility functions
+├── pkg/                   # Public packages (reusable)
+│   ├── analyzer/         # Output analyzer (confirmation detection)
+│   ├── controller/       # Agent controllers
+│   ├── executor/         # Command executors
+│   ├── git/              # Git operations
+│   ├── orchestrator/     # Task orchestration
+│   ├── scheduler/        # Task scheduling
+│   ├── state/            # State management
+│   └── tui/              # Terminal UI
+├── scripts/               # Utility scripts
+│   ├── test/             # Test scripts
+│   ├── build/            # Build scripts
+│   └── utils/            # Utility scripts
+├── test/                  # Test-related files
+│   ├── coverage/         # Coverage reports
+│   ├── fixtures/         # Test data
+│   ├── integration/      # Integration tests
+│   └── manual/           # Manual test code
+├── docs/                  # Documentation
+│   ├── guides/           # User guides
+│   ├── architecture/     # Architecture docs
+│   └── reports/          # Reports
+│       ├── test/         # Test reports
+│       ├── bugfix/       # Bug fix reports
+│       └── improvements/ # Improvement reports
+├── logs/                  # Log files (gitignored)
+└── bin/                   # Compiled binaries (gitignored)
+```
+
+### Key Directories
+
+- **cmd/**: Application entry points
+- **pkg/**: Reusable public packages
+- **internal/**: Private implementation details
+- **test/**: All test-related files and data
+- **docs/**: Comprehensive documentation with categorized reports
+- **scripts/**: Development and deployment scripts
+- **logs/**: Runtime logs (not tracked by git)
+- **bin/**: Compiled binaries (not tracked by git)
+
+For detailed documentation, see [docs/README.md](docs/README.md)
+

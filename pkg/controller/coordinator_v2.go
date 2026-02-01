@@ -283,3 +283,8 @@ func (c *CoordinatorV2) GetAgentStatus() []*models.AgentStatus {
 	}
 	return statuses
 }
+
+// GetTaskQueue returns the task queue (for monitoring)
+func (c *CoordinatorV2) GetTaskQueue() *state.TaskQueue {
+	return c.taskQueue
+}
