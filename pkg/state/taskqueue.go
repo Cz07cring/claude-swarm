@@ -253,6 +253,102 @@ func (tq *TaskQueue) GetDependentTasks(taskID string) []*models.Task {
 	return tq.scheduler.GetDependentTasks(taskID)
 }
 
+// RemoveTask removes a task from the queue
+func (tq *TaskQueue) RemoveTask(taskID string) error {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	_, exists := tq.tasks[taskID]
+	if !exists {
+		return fmt.Errorf("task not found: %s", taskID)
+	}
+
+	// Remove from map
+	delete(tq.tasks, taskID)
+
+	// Remove from scheduler
+	tq.scheduler.RemoveTask(taskID)
+
+	return tq.save()
+}
+
+// ClearCompleted removes all completed tasks from the queue
+func (tq *TaskQueue) ClearCompleted() (int, error) {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	count := 0
+	toRemove := make([]string, 0)
+
+	for id, task := range tq.tasks {
+		if task.Status == models.TaskStatusCompleted {
+			toRemove = append(toRemove, id)
+		}
+	}
+
+	for _, id := range toRemove {
+		delete(tq.tasks, id)
+		tq.scheduler.RemoveTask(id)
+		count++
+	}
+
+	if count > 0 {
+		if err := tq.save(); err != nil {
+			return count, err
+		}
+	}
+
+	return count, nil
+}
+
+// ClearFailed removes all failed tasks from the queue
+func (tq *TaskQueue) ClearFailed() (int, error) {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	count := 0
+	toRemove := make([]string, 0)
+
+	for id, task := range tq.tasks {
+		if task.Status == models.TaskStatusFailed {
+			toRemove = append(toRemove, id)
+		}
+	}
+
+	for _, id := range toRemove {
+		delete(tq.tasks, id)
+		tq.scheduler.RemoveTask(id)
+		count++
+	}
+
+	if count > 0 {
+		if err := tq.save(); err != nil {
+			return count, err
+		}
+	}
+
+	return count, nil
+}
+
+// ClearAll removes all tasks from the queue
+func (tq *TaskQueue) ClearAll() (int, error) {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	count := len(tq.tasks)
+
+	tq.tasks = make(map[string]*models.Task)
+	tq.scheduler = scheduler.NewDAGScheduler()
+
+	if count > 0 {
+		if err := tq.save(); err != nil {
+			return count, err
+		}
+	}
+
+	return count, nil
+}
+
 // load loads tasks from the JSON file
 func (tq *TaskQueue) load() error {
 	// Acquire shared lock for reading (multiple readers allowed)

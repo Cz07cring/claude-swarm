@@ -31,7 +31,6 @@ var (
 	autoStart      bool
 	autoApprove    bool
 	maxAgents      int
-	taskQueuePath  string
 )
 
 func init() {
