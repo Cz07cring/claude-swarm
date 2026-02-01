@@ -105,3 +105,29 @@ type Decision struct {
 	Reasoning   string     `json:"reasoning"`   // 决策理由
 	Result      string     `json:"result"`      // 执行结果
 }
+
+// FailureDiagnosis 失败任务诊断结果
+type FailureDiagnosis struct {
+	RootCause            string  `json:"root_cause"`             // 根本原因分析
+	ShouldRetry          bool    `json:"should_retry"`           // 是否值得重试
+	RetrySuggestion      string  `json:"retry_suggestion"`       // 重试建议
+	AlternativeAction    string  `json:"alternative_action"`     // 替代方案
+	EstimatedSuccessRate int     `json:"estimated_success_rate"` // 预估成功率 0-100
+}
+
+// AgentHelp Agent 帮助信息
+type AgentHelp struct {
+	StuckPoint       string `json:"stuck_point"`        // 卡住的具体位置
+	Hint             string `json:"hint"`               // 给 Agent 的提示
+	ShouldReassign   bool   `json:"should_reassign"`    // 是否重新分配
+	ReassignReason   string `json:"reassign_reason"`    // 重新分配原因
+}
+
+// QualityReport 任务质量报告
+type QualityReport struct {
+	IsComplete         bool     `json:"is_complete"`         // 是否完成
+	QualityScore       int      `json:"quality_score"`       // 质量评分 0-100
+	Issues             []string `json:"issues"`              // 发现的问题
+	NeedsRework        bool     `json:"needs_rework"`        // 是否需要返工
+	ReworkInstructions string   `json:"rework_instructions"` // 返工指示
+}

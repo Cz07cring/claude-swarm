@@ -253,6 +253,27 @@ func (tq *TaskQueue) GetDependentTasks(taskID string) []*models.Task {
 	return tq.scheduler.GetDependentTasks(taskID)
 }
 
+// UpdateTask updates an existing task in the queue
+func (tq *TaskQueue) UpdateTask(task *models.Task) error {
+	tq.mu.Lock()
+	defer tq.mu.Unlock()
+
+	if _, exists := tq.tasks[task.ID]; !exists {
+		return fmt.Errorf("task not found: %s", task.ID)
+	}
+
+	// Update timestamp
+	task.UpdatedAt = time.Now()
+
+	// Update in memory
+	tq.tasks[task.ID] = task
+
+	// Update in scheduler
+	tq.scheduler.UpdateTask(task)
+
+	return tq.save()
+}
+
 // RemoveTask removes a task from the queue
 func (tq *TaskQueue) RemoveTask(taskID string) error {
 	tq.mu.Lock()

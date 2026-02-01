@@ -120,6 +120,12 @@ func runOrchestrate(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	// 验证依赖关系
+	fmt.Println("\n🔍 验证依赖关系...")
+	if err := brain.ValidateDependencies(result); err != nil {
+		log.Fatalf("❌ 依赖关系验证失败: %v", err)
+	}
+
 	// 创建任务
 	fmt.Println("\n📋 创建任务队列...")
 	if err := brain.CreateTasksFromAnalysis(ctx, result); err != nil {
