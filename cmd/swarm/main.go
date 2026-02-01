@@ -7,11 +7,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version info (set by ldflags)
+var (
+	Version   = "2.0.0"
+	BuildTime = "unknown"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "swarm",
-	Short: "Claude Agent Swarm - 多 Agent 协作开发环境",
-	Long: `Claude Agent Swarm 是一个基于 Claude CLI 的多 Agent 协作系统。
-它使用 Git worktree 隔离和直接 CLI 执行，实现任务自动分发和智能协助。`,
+	Short: "Claude Swarm - AI-Powered Multi-Agent Development System",
+	Long: `Claude Swarm is a multi-agent system powered by Claude CLI.
+It uses Git worktree isolation and direct CLI execution for parallel task processing.
+
+Quick Start:
+  swarm run "Your task"           # Run single task (simplest)
+  swarm init                      # Initialize project
+  swarm add-task "Task 1"         # Add tasks to queue
+  swarm start --agents 3          # Run with multiple agents
+
+With AI:
+  swarm orchestrate "Build API"   # AI generates tasks
+  swarm start --with-brain        # AI monitors execution`,
+	Version: Version,
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print version information",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("Claude Swarm v%s\n", Version)
+		fmt.Printf("Build Time: %s\n", BuildTime)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(versionCmd)
 }
 
 func main() {
