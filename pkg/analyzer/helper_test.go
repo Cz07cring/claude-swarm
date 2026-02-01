@@ -231,28 +231,30 @@ func TestDetectorShouldConfirm(t *testing.T) {
 		context        string
 		shouldConfirm  bool
 		expectedInput  string
-		expectedReason string
 	}{
 		{
 			name:           "safe plan confirmation",
 			context:        "Proceed with this plan? This will create new files. (yes/no)",
 			shouldConfirm:  true,
 			expectedInput:  "yes",
-			expectedReason: "自动确认（已通过安全检查）",
 		},
 		{
-			name:           "dangerous delete",
+			name:           "medium risk delete - auto confirmed",
 			context:        "Delete all files? (yes/no)",
-			shouldConfirm:  false,
-			expectedInput:  "",
-			expectedReason: "检测到危险操作或无法判断安全性",
+			shouldConfirm:  true,
+			expectedInput:  "yes",
 		},
 		{
-			name:           "production deployment",
+			name:           "production deployment - auto confirmed",
 			context:        "Deploy to production environment. Continue? [Y/n]",
+			shouldConfirm:  true,
+			expectedInput:  "Y", // [Y/n] format returns Y
+		},
+		{
+			name:           "critical drop database - blocked",
+			context:        "Drop database? (yes/no)",
 			shouldConfirm:  false,
 			expectedInput:  "",
-			expectedReason: "检测到危险操作或无法判断安全性",
 		},
 	}
 
@@ -261,7 +263,7 @@ func TestDetectorShouldConfirm(t *testing.T) {
 			d := NewDetector()
 			d.Analyze(tt.context)
 
-			shouldConfirm, input, reason := d.ShouldConfirm()
+			shouldConfirm, input, _ := d.ShouldConfirm()
 
 			if shouldConfirm != tt.shouldConfirm {
 				t.Errorf("ShouldConfirm() decision = %v, want %v", shouldConfirm, tt.shouldConfirm)
@@ -270,78 +272,10 @@ func TestDetectorShouldConfirm(t *testing.T) {
 			if shouldConfirm && input != tt.expectedInput {
 				t.Errorf("ShouldConfirm() input = %q, want %q", input, tt.expectedInput)
 			}
-
-			if !shouldConfirm && reason != tt.expectedReason {
-				t.Errorf("ShouldConfirm() reason = %q, want %q", reason, tt.expectedReason)
-			}
 		})
 	}
 }
 
-// TestRequiresManualConfirmation tests manual confirmation detection
-func TestRequiresManualConfirmation(t *testing.T) {
-	tests := []struct {
-		name     string
-		context  string
-		expected bool
-	}{
-		{
-			name:     "irreversible",
-			context:  "This action is irreversible",
-			expected: true,
-		},
-		{
-			name:     "cannot be undone",
-			context:  "This cannot be undone",
-			expected: true,
-		},
-		{
-			name:     "permanent",
-			context:  "This is a permanent change",
-			expected: true,
-		},
-		{
-			name:     "production",
-			context:  "Deploy to production environment",
-			expected: true,
-		},
-		{
-			name:     "live environment",
-			context:  "Update live environment configuration",
-			expected: true,
-		},
-		{
-			name:     "critical",
-			context:  "Critical system modification required",
-			expected: true,
-		},
-		{
-			name:     "warning",
-			context:  "Warning: This may cause issues",
-			expected: true,
-		},
-		{
-			name:     "caution",
-			context:  "Caution: Proceed carefully",
-			expected: true,
-		},
-		{
-			name:     "normal operation",
-			context:  "Create a new file",
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			d := NewDetector()
-			result := d.requiresManualConfirmation(tt.context)
-			if result != tt.expected {
-				t.Errorf("requiresManualConfirmation() = %v, want %v", result, tt.expected)
-			}
-		})
-	}
-}
 
 // TestConfirmationStatistics tests the statistics tracking
 func TestConfirmationStatistics(t *testing.T) {
@@ -354,15 +288,17 @@ func TestConfirmationStatistics(t *testing.T) {
 	}
 
 	// 模拟几次确认请求
-	// Note: Only plan confirmations and option lists with safe actions are auto-confirmed
+	// Note: The new AI-based risk assessment auto-confirms most operations except critical ones
+	// - Low/Medium risk: auto-confirmed
+	// - Critical risk (rm -rf, drop database): blocked
 	contexts := []struct {
 		context      string
 		shouldAuto   bool
 	}{
-		{"Proceed with this plan to create files? (yes/no)", true},  // Plan, auto
-		{"Delete all? (yes/no)", false},                             // Dangerous, blocked
-		{"Read the file?\n❯ 1. Yes\n  2. No", true},                 // Option list, auto
-		{"This is irreversible. OK?", false},                        // Blocked
+		{"Proceed with this plan to create files? (yes/no)", true},  // Low risk, auto
+		{"Delete all? (yes/no)", true},                              // Medium risk, auto (normal delete)
+		{"Read the file?\n❯ 1. Yes\n  2. No", true},                 // Default, auto
+		{"Drop database production?", false},                         // Critical risk, blocked
 	}
 
 	for _, tc := range contexts {
@@ -384,8 +320,9 @@ func TestConfirmationStatistics(t *testing.T) {
 	if stats.TotalRequests != 4 {
 		t.Errorf("TotalRequests = %d, want 4", stats.TotalRequests)
 	}
-	if stats.AutoConfirmed != 2 {
-		t.Errorf("AutoConfirmed = %d, want 2", stats.AutoConfirmed)
+	// 3 auto confirmed (all except Drop database which is critical)
+	if stats.AutoConfirmed != 3 {
+		t.Errorf("AutoConfirmed = %d, want 3", stats.AutoConfirmed)
 	}
 
 	// 测试重置

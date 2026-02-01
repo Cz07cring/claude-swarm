@@ -1,4 +1,4 @@
-# Claude Swarm V2 使用指南
+# Claude Swarm 使用指南
 
 ## 📚 目录
 
@@ -39,10 +39,10 @@ EOF
 
 ```bash
 # 使用 3 个 agents
-./swarm start-v2 --agents 3
+./swarm start --agents 3
 
 # 指定自定义任务文件
-./swarm start-v2 --agents 3 --tasks /path/to/custom-tasks.json
+./swarm start --agents 3 --tasks /path/to/custom-tasks.json
 ```
 
 ### 3. 监控进度
@@ -61,12 +61,12 @@ cat ~/.claude-swarm/tasks.json | jq .
 
 ## 基本命令
 
-### start-v2
+### start
 
-启动 Claude Swarm V2 系统。
+启动 Claude Swarm 系统。
 
 ```bash
-swarm start-v2 [flags]
+swarm start [flags]
 ```
 
 **参数:**
@@ -77,13 +77,13 @@ swarm start-v2 [flags]
 
 ```bash
 # 启动 5 个 agents
-swarm start-v2 --agents 5
+swarm start --agents 5
 
 # 使用自定义任务文件
-swarm start-v2 --agents 3 --tasks ./my-tasks.json
+swarm start --agents 3 --tasks ./my-tasks.json
 
 # 后台运行并保存日志
-swarm start-v2 --agents 3 > /tmp/swarm.log 2>&1 &
+swarm start --agents 3 > /tmp/swarm.log 2>&1 &
 ```
 
 **停止:**
@@ -129,7 +129,7 @@ swarm start-v2 --agents 3 > /tmp/swarm.log 2>&1 &
 
 ### DAG 依赖调度
 
-V2 支持任务依赖关系（DAG）：
+Claude Swarm 支持任务依赖关系（DAG）：
 
 ```json
 {
@@ -222,7 +222,7 @@ cat ~/.claude-swarm/tasks.json | jq '.tasks | group_by(.status) | map({status: .
 
 ### 5. 处理失败的任务
 
-V2 有自动重试机制，但如果任务仍然失败：
+系统有自动重试机制，但如果任务仍然失败：
 
 ```bash
 # 1. 查看失败原因
@@ -232,7 +232,7 @@ cat ~/.claude-swarm/tasks.json | jq '.tasks[] | select(.id=="task-1") | .last_er
 # 编辑 tasks.json，将 status 改为 "pending"，retry_count 改为 0
 
 # 3. 重新启动 swarm
-./swarm start-v2 --agents 3
+./swarm start --agents 3
 ```
 
 ---
@@ -244,7 +244,7 @@ cat ~/.claude-swarm/tasks.json | jq '.tasks[] | select(.id=="task-1") | .last_er
 **原因**: 任务可能需要人工确认
 
 **解决**:
-- 检查日志：`tail -f /tmp/swarm-v2-run.log`
+- 检查日志：`tail -f /tmp/swarm-run.log`
 - V2 使用 `--dangerously-skip-permissions`，应该自动确认
 - 如果仍然卡住，可能是任务描述有问题
 
@@ -271,7 +271,7 @@ git worktree prune
 git branch -D agent-0-branch agent-1-branch agent-2-branch
 
 # 重新启动
-./swarm start-v2 --agents 3
+./swarm start --agents 3
 ```
 
 ### 问题 4: 磁盘空间不足
@@ -287,7 +287,7 @@ du -sh .worktrees
 # Ctrl+C 停止，然后：
 rm -rf .worktrees
 git worktree prune
-./swarm start-v2 --agents 3
+./swarm start --agents 3
 ```
 
 ---
@@ -333,7 +333,7 @@ git worktree prune
 
 ```bash
 # 保存日志到指定位置
-./swarm start-v2 --agents 3 > ~/my-swarm-$(date +%Y%m%d-%H%M%S).log 2>&1
+./swarm start --agents 3 > ~/my-swarm-$(date +%Y%m%d-%H%M%S).log 2>&1
 ```
 
 ### 3. 批量任务生成
@@ -367,11 +367,11 @@ chmod +x generate-tasks.sh
 
 ## 参考资料
 
-- [V2 架构完整报告](./V2_INTEGRATION_COMPLETE.md)
+- [系统架构](./ARCHITECTURE.md)
 - [TUI 监控指南](./TUI_MONITOR.md)
 - [主项目 README](../README.md)
 
 ---
 
 **Last Updated**: 2026-02-01
-**Version**: V2.0
+**Version**: 1.0

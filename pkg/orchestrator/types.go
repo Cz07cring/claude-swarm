@@ -131,3 +131,30 @@ type QualityReport struct {
 	NeedsRework        bool     `json:"needs_rework"`        // 是否需要返工
 	ReworkInstructions string   `json:"rework_instructions"` // 返工指示
 }
+
+// MergeDecision 合并决策
+type MergeDecision struct {
+	ShouldMerge     bool     `json:"should_merge"`      // 是否应该合并
+	MergeOrder      []string `json:"merge_order"`       // 合并顺序（分支名）
+	Reason          string   `json:"reason"`            // 决策理由
+	PotentialIssues []string `json:"potential_issues"`  // 潜在问题
+}
+
+// ConflictResolution 冲突解决方案
+type ConflictResolution struct {
+	CanAutoResolve   bool              `json:"can_auto_resolve"`   // 是否可以自动解决
+	Resolution       string            `json:"resolution"`         // 解决方案
+	FileResolutions  map[string]string `json:"file_resolutions"`   // 每个文件的解决方案
+	NeedsHumanReview bool              `json:"needs_human_review"` // 是否需要人工审核
+	Reason           string            `json:"reason"`             // 理由
+}
+
+// MergeStatus 合并状态
+type MergeStatus struct {
+	Branch      string   `json:"branch"`       // 分支名
+	AgentID     string   `json:"agent_id"`     // Agent ID
+	HasChanges  bool     `json:"has_changes"`  // 是否有改动
+	CommitCount int      `json:"commit_count"` // 提交数量
+	Files       []string `json:"files"`        // 修改的文件
+	ReadyToMerge bool    `json:"ready_to_merge"` // 是否可以合并
+}

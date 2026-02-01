@@ -64,7 +64,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 	stats := calculateStats(tasks)
 
 	// 4. 打印标题
-	fmt.Println("📊 Claude Swarm V2 任务状态")
+	fmt.Println("📊 Claude Swarm 任务状态")
 	fmt.Println(strings.Repeat("━", 60))
 	fmt.Println()
 

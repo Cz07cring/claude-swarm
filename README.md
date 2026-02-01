@@ -6,7 +6,7 @@
 
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-v2.0-blue.svg)](https://github.com/Cz07cring/claude-swarm)
+[![Version](https://img.shields.io/badge/Version-2.0-blue.svg)](https://github.com/Cz07cring/claude-swarm)
 
 [English](README.md) • [简体中文](README_ZH.md)
 
@@ -20,7 +20,7 @@ An **AI-driven multi-agent system** that orchestrates multiple Claude Code insta
 
 ```bash
 # Start 5 agents
-./swarm start-v2 --agents 5
+./swarm start --agents 5
 
 # Each task completes in 10-12 seconds
 # Fully automated, zero conflicts
@@ -92,7 +92,7 @@ cat > ~/.claude-swarm/tasks.json << 'EOF'
 EOF
 
 # 2. Start swarm
-./swarm start-v2 --agents 3
+./swarm start --agents 3
 
 # 3. Watch it work
 # Task completes in ~11 seconds
@@ -104,7 +104,7 @@ EOF
 
 ```bash
 # Start agents
-swarm start-v2 --agents N
+swarm start --agents N
 
 # Add task
 swarm add-task "your task description"
@@ -126,7 +126,7 @@ swarm stop
 swarm orchestrate "Build a REST API with user CRUD"
 
 # Then run
-swarm start-v2 --agents 5
+swarm start --agents 5
 ```
 
 ---
@@ -136,12 +136,12 @@ swarm start-v2 --agents 5
 ```
 Task Queue (JSON)
     ↓
-CoordinatorV2
+Coordinator
     ├── Agent 0 (worktree-0) ⚡
     ├── Agent 1 (worktree-1) ⚡
     └── Agent N (worktree-n) ⚡
          ↓
-ClaudeExecutor
+Claude Executor
   • echo | claude --dangerously-skip-permissions
   • AI risk assessment
   • Auto retry on failure
@@ -177,7 +177,7 @@ ClaudeExecutor
 
 ```bash
 # Parallel execution
-./swarm start-v2 --agents 3
+./swarm start --agents 3
 
 # Tasks run simultaneously:
 # Agent-0: Create README (11s)
@@ -216,7 +216,7 @@ ClaudeExecutor
 }
 
 # Start with monitoring
-./swarm start-v2 --agents 1 &
+./swarm start --agents 1 &
 ./swarm monitor
 ```
 
@@ -239,7 +239,7 @@ Real-time dashboard with:
 
 ## 📚 Documentation
 
-- [V2 Architecture](docs/V2_INTEGRATION_COMPLETE.md) - Technical details
+- [Architecture](docs/ARCHITECTURE.md) - Technical details
 - [User Guide](docs/guides/USER_GUIDE.md) - Complete tutorial
 - [Test Reports](docs/reports/) - Validation results
 
@@ -247,13 +247,13 @@ Real-time dashboard with:
 
 ## 🗺️ Roadmap
 
-**Current (v2.0):**
+**Current:**
 - ✅ Direct CLI execution
 - ✅ AI risk assessment
 - ✅ Smart retry
 - ✅ Worktree isolation
 
-**Next (v2.1):**
+**Coming Soon:**
 - Enhanced DAG scheduling
 - Auto git merge
 - Web dashboard
@@ -299,7 +299,7 @@ MIT License - see [LICENSE](LICENSE)
 
 <div align="center">
 
-**⚡ v2.0** - Production-ready reliability meets blazing speed
+**⚡ Production Ready** - Reliability meets blazing speed
 
 **🚀 10-12s/task** • **🧠 AI-powered** • **💯 Free**
 

@@ -22,7 +22,7 @@ var addTaskCmd = &cobra.Command{
   # 基础使用
   swarm add-task "创建 README.md 文件"
 
-  # 高级用法（支持 V2 新特性）
+  # 高级用法
   swarm add-task "编写单元测试" \
     --priority 8 \
     --dependencies task-1,task-2 \

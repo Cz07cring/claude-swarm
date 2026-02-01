@@ -137,11 +137,11 @@ func runOrchestrate(cmd *cobra.Command, args []string) {
 	// 提示下一步
 	if autoStart {
 		fmt.Println("\n🚀 自动启动Agent集群...")
-		// TODO: 自动调用 start-v2 命令
-		fmt.Printf("   swarm start-v2 --agents %d\n", maxAgents)
+		// TODO: 自动调用 start 命令
+		fmt.Printf("   swarm start --agents %d\n", maxAgents)
 	} else {
 		fmt.Println("\n💡 下一步操作：")
-		fmt.Printf("   swarm start-v2 --agents %d   # 启动%d个Agent开始工作 (V2)\n", maxAgents, maxAgents)
+		fmt.Printf("   swarm start --agents %d   # 启动%d个Agent开始工作\n", maxAgents, maxAgents)
 		fmt.Println("   # 实时监控任务状态:")
 		fmt.Println("   watch -n 1 'cat ~/.claude-swarm/tasks.json | jq \".tasks[] | {id, status}\"'")
 	}

@@ -338,19 +338,21 @@ func TestConfirmStatsIntegration(t *testing.T) {
 	}
 
 	// Simulate confirmations through ShouldConfirm
-	// Note: SafeToConfirm only auto-confirms:
-	// 1. Plan confirmations without danger keywords
-	// 2. Option lists (with "1. Yes") containing safe actions
+	// Note: The new AI-based risk assessment system:
+	// - Critical risk (rm -rf, drop database, etc): BLOCKED
+	// - High risk (production + destructive): BLOCKED unless explicit safety context
+	// - Medium risk (normal delete, git push, etc): AUTO CONFIRM
+	// - Low risk (read, select, yes/no prompts): AUTO CONFIRM
 	// Use fresh detector for each case to avoid context pollution
 	testCases := []struct {
 		context  string
 		expected bool
 	}{
-		{"Proceed with this plan to create new files? (yes/no)", true},  // Plan confirmation, safe
-		{"Delete all files? (yes/no)", false},                           // Dangerous keyword
-		{"Create new feature?\n❯ 1. Yes\n  2. No", true},                // Option list with safe action
-		{"Deploy to production environment. OK?", false},                // Manual required
-		{"Drop database?\n❯ 1. Yes\n  2. No", false},                    // Dangerous keyword
+		{"Proceed with this plan to create new files? (yes/no)", true},  // Low risk (yes/no pattern)
+		{"Delete all files? (yes/no)", true},                            // Medium risk (delete keyword)
+		{"Create new feature?\n❯ 1. Yes\n  2. No", true},                // Low risk (option list)
+		{"Deploy to production environment. OK?", true},                 // Medium risk (production but not critical)
+		{"Drop database?\n❯ 1. Yes\n  2. No", false},                    // Critical risk (drop database)
 	}
 
 	for _, tc := range testCases {
@@ -366,8 +368,6 @@ func TestConfirmStatsIntegration(t *testing.T) {
 		// Accumulate stats to main detector
 		if shouldConfirm {
 			d.confirmStats.AutoConfirmed++
-		} else if strings.Contains(tc.context, "production") || strings.Contains(tc.context, "irreversible") {
-			d.confirmStats.ManualRequired++
 		} else {
 			d.confirmStats.Blocked++
 		}
@@ -384,16 +384,14 @@ func TestConfirmStatsIntegration(t *testing.T) {
 		t.Errorf("TotalRequests = %d, want 5", stats.TotalRequests)
 	}
 
-	if stats.AutoConfirmed != 2 {
-		t.Errorf("AutoConfirmed = %d, want 2", stats.AutoConfirmed)
+	// 4 auto confirmed (all except Drop database)
+	if stats.AutoConfirmed != 4 {
+		t.Errorf("AutoConfirmed = %d, want 4", stats.AutoConfirmed)
 	}
 
-	if stats.Blocked != 2 {
-		t.Errorf("Blocked = %d, want 2", stats.Blocked)
-	}
-
-	if stats.ManualRequired != 1 {
-		t.Errorf("ManualRequired = %d, want 1", stats.ManualRequired)
+	// 1 blocked (Drop database - critical risk)
+	if stats.Blocked != 1 {
+		t.Errorf("Blocked = %d, want 1", stats.Blocked)
 	}
 
 	if stats.LastConfirmTime.IsZero() {

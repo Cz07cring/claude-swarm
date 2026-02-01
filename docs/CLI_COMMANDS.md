@@ -1,6 +1,6 @@
-# Claude Swarm V2 CLI 命令参考
+# Claude Swarm CLI 命令参考
 
-本文档介绍 Claude Swarm V2 的所有 CLI 命令及其用法。
+本文档介绍 Claude Swarm 的所有 CLI 命令及其用法。
 
 ## 核心命令
 
@@ -55,7 +55,7 @@ swarm status
 
 **输出示例**:
 ```
-📊 Claude Swarm V2 任务状态
+📊 Claude Swarm 任务状态
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📈 统计:
@@ -218,22 +218,22 @@ swarm orchestrate "优化数据库查询" \
 
 ---
 
-### start-v2 - 启动 Agent 集群
+### start - 启动 Agent 集群
 
-启动 Claude Swarm V2 Agent 集群执行任务。
+启动 Claude Swarm Agent 集群执行任务。
 
 **基础用法**:
 ```bash
-swarm start-v2
+swarm start
 ```
 
 **高级用法**:
 ```bash
 # 指定 Agent 数量
-swarm start-v2 --agents 5
+swarm start --agents 5
 
 # 指定任务队列文件
-swarm start-v2 --tasks ./my-tasks.json
+swarm start --tasks ./my-tasks.json
 ```
 
 **参数说明**:
@@ -267,7 +267,7 @@ swarm add-task "编写测试" --priority 7 --dependencies db-models
 swarm status
 
 # 3. 启动执行
-swarm start-v2 --agents 3
+swarm start --agents 3
 
 # 4. 在另一个终端监控进度
 swarm monitor
@@ -301,7 +301,7 @@ swarm batch-add --file test-tasks.txt
 swarm status --verbose
 
 # 5. 启动执行
-swarm start-v2 --agents 5
+swarm start --agents 5
 
 # 6. 清理
 swarm clean --completed --force
@@ -402,5 +402,5 @@ A: 可以，但它们应该使用不同的任务队列文件（通过 `--queue` 
 | `status` | 查看队列状态 | `-v`, `-f` |
 | `clean` | 清理任务 | `--completed`, `--failed`, `--all`, `-f` |
 | `orchestrate` | AI 分析需求 | `--auto-start`, `--auto-approve`, `-n` |
-| `start-v2` | 启动 Agent | `-n`, `-t` |
+| `start` | 启动 Agent | `-n`, `-t` |
 | `monitor` | 监控面板 | 无 |

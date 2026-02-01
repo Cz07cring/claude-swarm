@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,33 +18,33 @@ import (
 	"github.com/yourusername/claude-swarm/pkg/state"
 )
 
-var startV2Cmd = &cobra.Command{
-	Use:   "start-v2",
-	Short: "Start the swarm (V2 - direct Claude CLI execution)",
-	Long:  "Starts the Claude agent swarm using V2 architecture with Git worktree isolation and free Claude CLI execution",
-	Run:   runStartV2,
+var startCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Start the swarm with direct Claude CLI execution",
+	Long:  "Starts the Claude agent swarm with Git worktree isolation and free Claude CLI execution",
+	Run:   runStart,
 }
 
 var (
-	v2NumAgents   int
-	v2TaskFile    string
-	v2WithBrain   bool
-	v2BrainAPIKey string
+	numAgents   int
+	taskFile    string
+	withBrain   bool
+	brainAPIKey string
 )
 
 func init() {
-	rootCmd.AddCommand(startV2Cmd)
+	rootCmd.AddCommand(startCmd)
 
-	startV2Cmd.Flags().IntVar(&v2NumAgents, "agents", 3, "Number of agents to start")
-	startV2Cmd.Flags().StringVar(&v2TaskFile, "tasks", "~/.claude-swarm/tasks.json", "Path to tasks file")
-	startV2Cmd.Flags().BoolVar(&v2WithBrain, "with-brain", false, "启用AI主脑监控和智能决策")
-	startV2Cmd.Flags().StringVar(&v2BrainAPIKey, "brain-api-key", "", "Gemini API Key for AI brain (or use GEMINI_API_KEY env var)")
+	startCmd.Flags().IntVar(&numAgents, "agents", 3, "Number of agents to start")
+	startCmd.Flags().StringVar(&taskFile, "tasks", "~/.claude-swarm/tasks.json", "Path to tasks file")
+	startCmd.Flags().BoolVar(&withBrain, "with-brain", false, "启用AI主脑监控和智能决策")
+	startCmd.Flags().StringVar(&brainAPIKey, "brain-api-key", "", "Gemini API Key for AI brain (or use GEMINI_API_KEY env var)")
 }
 
-func runStartV2(cmd *cobra.Command, args []string) {
+func runStart(cmd *cobra.Command, args []string) {
 	log.SetFlags(log.Ltime)
 
-	fmt.Println("🚀 启动 Claude Agent Swarm V2...")
+	fmt.Println("🚀 启动 Claude Agent Swarm...")
 	fmt.Println()
 
 	// Get current directory as repo path
@@ -53,16 +54,16 @@ func runStartV2(cmd *cobra.Command, args []string) {
 	}
 
 	// Expand task file path
-	if len(v2TaskFile) >= 2 && v2TaskFile[:2] == "~/" {
+	if len(taskFile) >= 2 && taskFile[:2] == "~/" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			log.Fatalf("Failed to get home directory: %v", err)
 		}
-		v2TaskFile = filepath.Join(home, v2TaskFile[2:])
+		taskFile = filepath.Join(home, taskFile[2:])
 	}
 
 	// Create coordinator
-	coord, err := controller.NewCoordinatorV2(repoPath, v2TaskFile, v2NumAgents)
+	coord, err := controller.NewCoordinator(repoPath, taskFile, numAgents)
 	if err != nil {
 		log.Fatalf("Failed to create coordinator: %v", err)
 	}
@@ -77,17 +78,17 @@ func runStartV2(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Println()
-	fmt.Printf("✓ Swarm started with %d agents\n", v2NumAgents)
-	fmt.Printf("✓ Task queue: %s\n", v2TaskFile)
+	fmt.Printf("✓ Swarm started with %d agents\n", numAgents)
+	fmt.Printf("✓ Task queue: %s\n", taskFile)
 	fmt.Println()
 
 	// 启动AI主脑监控（可选）
-	var brainCancel context.CancelFunc
-	if v2WithBrain {
+	var brainCancelFunc context.CancelFunc
+	if withBrain {
 		ctx, cancel := context.WithCancel(context.Background())
-		brainCancel = cancel
+		brainCancelFunc = cancel
 
-		if err := startBrainMonitor(ctx, v2TaskFile, coord); err != nil {
+		if err := startBrainMonitor(ctx, taskFile, coord); err != nil {
 			log.Printf("⚠️  AI主脑启动失败: %v", err)
 			log.Println("继续运行（无主脑监控）...")
 		} else {
@@ -103,8 +104,8 @@ func runStartV2(cmd *cobra.Command, args []string) {
 	<-sigChan
 
 	// 停止主脑监控
-	if brainCancel != nil {
-		brainCancel()
+	if brainCancelFunc != nil {
+		brainCancelFunc()
 	}
 
 	fmt.Println()
@@ -124,9 +125,9 @@ func runStartV2(cmd *cobra.Command, args []string) {
 }
 
 // startBrainMonitor 启动AI主脑监控循环
-func startBrainMonitor(ctx context.Context, taskFilePath string, coord *controller.CoordinatorV2) error {
+func startBrainMonitor(ctx context.Context, taskFilePath string, coord *controller.Coordinator) error {
 	// 获取API Key
-	apiKey := v2BrainAPIKey
+	apiKey := brainAPIKey
 	if apiKey == "" {
 		apiKey = os.Getenv("GEMINI_API_KEY")
 	}
@@ -184,6 +185,11 @@ func startBrainMonitor(ctx context.Context, taskFilePath string, coord *controll
 				// 执行行动
 				if action.Type != orchestrator.ActionWait {
 					executeAction(action, taskQueue)
+				}
+
+				// 检查是否需要智能合并（每完成一批任务后）
+				if progress.CompletedTasks > 0 && progress.InProgressTasks == 0 {
+					checkAndMerge(ctx, brain, coord)
 				}
 
 			case <-ctx.Done():
@@ -258,11 +264,102 @@ func executeAction(action *orchestrator.Action, taskQueue *state.TaskQueue) {
 		log.Printf("📌 主脑建议分配任务: %s", action.Reason)
 		// 任务分配由coordinator自动处理
 
+	case orchestrator.ActionMergeBranch:
+		log.Printf("🔀 主脑决策合并分支: %s", action.Reason)
+		// 合并逻辑在 checkAndMerge 中处理
+
 	case orchestrator.ActionWait:
 		// 静默等待
 		return
 
 	default:
 		log.Printf("⚠️  未知的主脑行动类型: %s", action.Type)
+	}
+}
+
+// checkAndMerge 使用AI智能决策合并
+func checkAndMerge(ctx context.Context, brain *orchestrator.OrchestratorBrain, coord *controller.Coordinator) {
+	// 获取所有分支的合并状态
+	coordStatuses := coord.GetMergeStatuses()
+	if len(coordStatuses) == 0 {
+		return
+	}
+
+	// 转换为 orchestrator.MergeStatus
+	mergeStatuses := make([]*orchestrator.MergeStatus, len(coordStatuses))
+	for i, s := range coordStatuses {
+		mergeStatuses[i] = &orchestrator.MergeStatus{
+			Branch:       s.Branch,
+			AgentID:      s.AgentID,
+			HasChanges:   s.HasChanges,
+			CommitCount:  s.CommitCount,
+			Files:        s.Files,
+			ReadyToMerge: s.ReadyToMerge,
+		}
+	}
+
+	// 检查是否有可合并的分支
+	hasReadyBranches := false
+	for _, s := range mergeStatuses {
+		if s.ReadyToMerge {
+			hasReadyBranches = true
+			break
+		}
+	}
+
+	if !hasReadyBranches {
+		return
+	}
+
+	log.Println("🧠 检测到可合并的分支，请求AI决策...")
+
+	// 让AI决定合并策略
+	decision, err := brain.DecideMergeStrategy(ctx, mergeStatuses)
+	if err != nil {
+		log.Printf("⚠️  AI合并决策失败: %v", err)
+		return
+	}
+
+	if !decision.ShouldMerge {
+		log.Printf("ℹ️  AI决策暂不合并: %s", decision.Reason)
+		return
+	}
+
+	log.Printf("🔀 AI决策合并顺序: %v", decision.MergeOrder)
+	if len(decision.PotentialIssues) > 0 {
+		log.Printf("⚠️  潜在问题: %v", decision.PotentialIssues)
+	}
+
+	// 按顺序执行合并
+	for _, branch := range decision.MergeOrder {
+		log.Printf("🔀 合并分支: %s", branch)
+
+		err := coord.MergeBranch(branch)
+		if err != nil {
+			// 检查是否是冲突
+			if strings.Contains(err.Error(), "conflict") {
+				log.Printf("⚠️  合并冲突: %s", branch)
+
+				// 获取冲突详情
+				conflictFiles, conflictContent, _ := coord.GetConflictDetails(branch)
+				if len(conflictFiles) > 0 {
+					// 让AI分析冲突
+					resolution, err := brain.ResolveConflict(ctx, branch, conflictFiles, conflictContent)
+					if err != nil {
+						log.Printf("⚠️  AI冲突分析失败: %v", err)
+					} else {
+						log.Printf("🧠 AI冲突分析: %s", resolution.Resolution)
+						if resolution.NeedsHumanReview {
+							log.Printf("⚠️  需要人工审核冲突")
+						}
+					}
+				}
+			} else {
+				log.Printf("❌ 合并失败: %v", err)
+			}
+			continue
+		}
+
+		log.Printf("✅ 成功合并: %s", branch)
 	}
 }

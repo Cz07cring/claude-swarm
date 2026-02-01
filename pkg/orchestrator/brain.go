@@ -736,3 +736,145 @@ func cleanJSONResponse(response string) string {
 	response = strings.TrimSpace(response)
 	return response
 }
+
+// DecideMergeStrategy 决定合并策略
+func (b *OrchestratorBrain) DecideMergeStrategy(ctx context.Context, mergeStatuses []*MergeStatus) (*MergeDecision, error) {
+	if len(mergeStatuses) == 0 {
+		return &MergeDecision{
+			ShouldMerge: false,
+			Reason:      "没有待合并的分支",
+		}, nil
+	}
+
+	log.Printf("🧠 AI分析合并策略: %d个分支待处理", len(mergeStatuses))
+
+	// 构建分支信息
+	var branchInfo strings.Builder
+	for _, status := range mergeStatuses {
+		branchInfo.WriteString(fmt.Sprintf("- 分支: %s (Agent: %s)\n", status.Branch, status.AgentID))
+		branchInfo.WriteString(fmt.Sprintf("  提交数: %d, 文件: %v\n", status.CommitCount, status.Files))
+		branchInfo.WriteString(fmt.Sprintf("  可合并: %v\n", status.ReadyToMerge))
+	}
+
+	prompt := fmt.Sprintf(`你是一个Git合并策略专家。分析以下待合并的分支，决定最佳合并顺序。
+
+待合并分支：
+%s
+
+请分析：
+1. 这些分支是否有潜在冲突（基于修改的文件）
+2. 最佳合并顺序（考虑依赖关系和冲突风险）
+3. 是否应该现在合并，还是等待更多任务完成
+
+返回JSON格式（不要用markdown代码块包裹）：
+{
+  "should_merge": true,
+  "merge_order": ["agent-0-branch", "agent-1-branch"],
+  "reason": "决策理由",
+  "potential_issues": ["可能的问题1", "可能的问题2"]
+}`, branchInfo.String())
+
+	responseText, err := b.callGemini(ctx, prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	responseText = cleanJSONResponse(responseText)
+
+	var decision MergeDecision
+	if err := json.Unmarshal([]byte(responseText), &decision); err != nil {
+		return nil, fmt.Errorf("解析合并决策失败: %w\n原始响应: %s", err, responseText)
+	}
+
+	log.Printf("✅ 合并决策: 合并=%v, 顺序=%v", decision.ShouldMerge, decision.MergeOrder)
+	return &decision, nil
+}
+
+// ResolveConflict 使用AI分析并解决合并冲突
+func (b *OrchestratorBrain) ResolveConflict(ctx context.Context, branch string, conflictFiles []string, conflictContent string) (*ConflictResolution, error) {
+	log.Printf("🧠 AI分析合并冲突: %s, 冲突文件: %v", branch, conflictFiles)
+
+	// 限制内容长度
+	if len(conflictContent) > 3000 {
+		conflictContent = conflictContent[:3000] + "...(已截断)"
+	}
+
+	prompt := fmt.Sprintf(`你是一个代码合并专家。分析以下合并冲突并提供解决方案。
+
+分支: %s
+冲突文件: %v
+
+冲突内容:
+%s
+
+请分析：
+1. 冲突的原因
+2. 是否可以自动解决（保留两边改动/选择一边）
+3. 具体的解决建议
+
+返回JSON格式（不要用markdown代码块包裹）：
+{
+  "can_auto_resolve": false,
+  "resolution": "解决方案描述",
+  "file_resolutions": {
+    "file1.go": "保留双方改动，手动合并",
+    "file2.go": "使用当前分支版本"
+  },
+  "needs_human_review": true,
+  "reason": "为什么需要/不需要人工审核"
+}`, branch, conflictFiles, conflictContent)
+
+	responseText, err := b.callGemini(ctx, prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	responseText = cleanJSONResponse(responseText)
+
+	var resolution ConflictResolution
+	if err := json.Unmarshal([]byte(responseText), &resolution); err != nil {
+		return nil, fmt.Errorf("解析冲突解决方案失败: %w\n原始响应: %s", err, responseText)
+	}
+
+	log.Printf("✅ 冲突分析完成: 可自动解决=%v, 需人工=%v", resolution.CanAutoResolve, resolution.NeedsHumanReview)
+	return &resolution, nil
+}
+
+// ValidateMergeResult 验证合并结果
+func (b *OrchestratorBrain) ValidateMergeResult(ctx context.Context, branch string, mergedFiles []string) (*QualityReport, error) {
+	log.Printf("🧠 AI验证合并结果: %s", branch)
+
+	prompt := fmt.Sprintf(`你是一个代码审查专家。验证以下分支合并后的代码质量。
+
+合并的分支: %s
+涉及的文件: %v
+
+请检查：
+1. 合并是否完整
+2. 是否有潜在的集成问题
+3. 是否需要额外的测试
+
+返回JSON格式（不要用markdown代码块包裹）：
+{
+  "is_complete": true,
+  "quality_score": 85,
+  "issues": ["可能的问题"],
+  "needs_rework": false,
+  "rework_instructions": ""
+}`, branch, mergedFiles)
+
+	responseText, err := b.callGemini(ctx, prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	responseText = cleanJSONResponse(responseText)
+
+	var report QualityReport
+	if err := json.Unmarshal([]byte(responseText), &report); err != nil {
+		return nil, fmt.Errorf("解析验证结果失败: %w\n原始响应: %s", err, responseText)
+	}
+
+	log.Printf("✅ 合并验证完成: 评分=%d, 完整=%v", report.QualityScore, report.IsComplete)
+	return &report, nil
+}

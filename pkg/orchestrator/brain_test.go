@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -274,5 +275,248 @@ func TestTaskSpecIDGeneration(t *testing.T) {
 	// 第二个任务应该保留自定义ID
 	if result.Tasks[1].ID != "custom-id" {
 		t.Errorf("Expected custom-id for second task, got %s", result.Tasks[1].ID)
+	}
+}
+
+// ============== Smart Merge Functionality Tests ==============
+
+func TestMergeDecisionTypes(t *testing.T) {
+	// Test MergeDecision struct initialization and JSON serialization
+	decision := MergeDecision{
+		ShouldMerge:     true,
+		MergeOrder:      []string{"agent-0-branch", "agent-1-branch"},
+		Reason:          "All branches are ready to merge",
+		PotentialIssues: []string{"Possible conflict in file.go"},
+	}
+
+	if !decision.ShouldMerge {
+		t.Error("Expected ShouldMerge to be true")
+	}
+	if len(decision.MergeOrder) != 2 {
+		t.Errorf("Expected 2 branches in MergeOrder, got %d", len(decision.MergeOrder))
+	}
+	if decision.MergeOrder[0] != "agent-0-branch" {
+		t.Errorf("Expected first branch to be 'agent-0-branch', got %s", decision.MergeOrder[0])
+	}
+	if len(decision.PotentialIssues) != 1 {
+		t.Errorf("Expected 1 potential issue, got %d", len(decision.PotentialIssues))
+	}
+}
+
+func TestConflictResolutionTypes(t *testing.T) {
+	// Test ConflictResolution struct
+	resolution := ConflictResolution{
+		CanAutoResolve: false,
+		Resolution:     "Manual merge required",
+		FileResolutions: map[string]string{
+			"main.go": "Keep both changes",
+			"util.go": "Use current branch",
+		},
+		NeedsHumanReview: true,
+		Reason:           "Complex logic conflict",
+	}
+
+	if resolution.CanAutoResolve {
+		t.Error("Expected CanAutoResolve to be false")
+	}
+	if len(resolution.FileResolutions) != 2 {
+		t.Errorf("Expected 2 file resolutions, got %d", len(resolution.FileResolutions))
+	}
+	if resolution.FileResolutions["main.go"] != "Keep both changes" {
+		t.Errorf("Unexpected file resolution for main.go")
+	}
+	if !resolution.NeedsHumanReview {
+		t.Error("Expected NeedsHumanReview to be true")
+	}
+}
+
+func TestMergeStatusTypes(t *testing.T) {
+	// Test MergeStatus struct
+	status := MergeStatus{
+		Branch:       "agent-0-feature-branch",
+		AgentID:      "agent-0",
+		HasChanges:   true,
+		CommitCount:  5,
+		Files:        []string{"main.go", "util.go", "test.go"},
+		ReadyToMerge: true,
+	}
+
+	if status.Branch != "agent-0-feature-branch" {
+		t.Errorf("Expected branch 'agent-0-feature-branch', got %s", status.Branch)
+	}
+	if status.AgentID != "agent-0" {
+		t.Errorf("Expected agent ID 'agent-0', got %s", status.AgentID)
+	}
+	if !status.HasChanges {
+		t.Error("Expected HasChanges to be true")
+	}
+	if status.CommitCount != 5 {
+		t.Errorf("Expected 5 commits, got %d", status.CommitCount)
+	}
+	if len(status.Files) != 3 {
+		t.Errorf("Expected 3 files, got %d", len(status.Files))
+	}
+	if !status.ReadyToMerge {
+		t.Error("Expected ReadyToMerge to be true")
+	}
+}
+
+func TestDecideMergeStrategyNoStatus(t *testing.T) {
+	// Test DecideMergeStrategy with empty status list (no API call needed)
+	brain := &OrchestratorBrain{}
+
+	decision, err := brain.DecideMergeStrategy(nil, []*MergeStatus{})
+	if err != nil {
+		t.Fatalf("DecideMergeStrategy failed: %v", err)
+	}
+
+	if decision.ShouldMerge {
+		t.Error("Expected ShouldMerge to be false for empty status list")
+	}
+	if decision.Reason != "没有待合并的分支" {
+		t.Errorf("Unexpected reason: %s", decision.Reason)
+	}
+}
+
+func TestMergeStatusReadyToMergeLogic(t *testing.T) {
+	tests := []struct {
+		name         string
+		hasChanges   bool
+		commitCount  int
+		expectReady  bool
+	}{
+		{
+			name:         "has commits, clean worktree",
+			hasChanges:   false, // clean
+			commitCount:  3,
+			expectReady:  true, // CommitCount > 0 && !HasChanges
+		},
+		{
+			name:         "has commits, dirty worktree",
+			hasChanges:   true, // dirty
+			commitCount:  3,
+			expectReady:  false, // has uncommitted changes
+		},
+		{
+			name:         "no commits, clean worktree",
+			hasChanges:   false,
+			commitCount:  0,
+			expectReady:  false, // no commits to merge
+		},
+		{
+			name:         "no commits, dirty worktree",
+			hasChanges:   true,
+			commitCount:  0,
+			expectReady:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := MergeStatus{
+				HasChanges:  tt.hasChanges,
+				CommitCount: tt.commitCount,
+			}
+			// Calculate ReadyToMerge using the same logic as coordinator
+			status.ReadyToMerge = status.CommitCount > 0 && !status.HasChanges
+
+			if status.ReadyToMerge != tt.expectReady {
+				t.Errorf("ReadyToMerge = %v, want %v", status.ReadyToMerge, tt.expectReady)
+			}
+		})
+	}
+}
+
+func TestParseMergeDecisionJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		check   func(*MergeDecision) bool
+	}{
+		{
+			name: "valid merge decision",
+			input: `{
+				"should_merge": true,
+				"merge_order": ["branch-a", "branch-b"],
+				"reason": "All ready",
+				"potential_issues": ["conflict in x.go"]
+			}`,
+			wantErr: false,
+			check: func(d *MergeDecision) bool {
+				return d.ShouldMerge && len(d.MergeOrder) == 2 && len(d.PotentialIssues) == 1
+			},
+		},
+		{
+			name: "valid merge decision with markdown",
+			input: "```json\n" + `{
+				"should_merge": false,
+				"merge_order": [],
+				"reason": "Not ready"
+			}` + "\n```",
+			wantErr: false,
+			check: func(d *MergeDecision) bool {
+				return !d.ShouldMerge && len(d.MergeOrder) == 0
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleaned := cleanJSONResponse(tt.input)
+			var decision MergeDecision
+			err := json.Unmarshal([]byte(cleaned), &decision)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err == nil && tt.check != nil && !tt.check(&decision) {
+				t.Error("Check failed for parsed decision")
+			}
+		})
+	}
+}
+
+func TestParseConflictResolutionJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{
+			name: "valid conflict resolution",
+			input: `{
+				"can_auto_resolve": false,
+				"resolution": "Manual merge",
+				"file_resolutions": {"a.go": "keep both"},
+				"needs_human_review": true,
+				"reason": "Complex conflict"
+			}`,
+			wantErr: false,
+		},
+		{
+			name: "auto resolvable conflict",
+			input: `{
+				"can_auto_resolve": true,
+				"resolution": "Use theirs",
+				"file_resolutions": {},
+				"needs_human_review": false,
+				"reason": "Simple change"
+			}`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleaned := cleanJSONResponse(tt.input)
+			var resolution ConflictResolution
+			err := json.Unmarshal([]byte(cleaned), &resolution)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
